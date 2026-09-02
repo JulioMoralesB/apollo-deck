@@ -3,19 +3,23 @@ package com.apollox10.apollodeck.ui.dashboard
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -30,6 +34,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,16 +59,30 @@ import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
 import com.apollox10.apollodeck.ui.theme.OnlineGreen
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DashboardScreen(
     onLogout: () -> Unit,
     viewModel: DashboardViewModel = viewModel(),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val actionResult by viewModel.actionResult.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedService by remember { mutableStateOf<Service?>(null) }
+    var pendingAction by remember { mutableStateOf<Action?>(null) }
+
+    fun handleActionTap(action: Action) {
+        when {
+            action.href != null -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(action.href)))
+            action.confirm -> pendingAction = action
+            else -> {
+                viewModel.executeAction(action)
+                selectedService = null
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.startPolling(onSessionExpired = onLogout)
@@ -121,13 +140,33 @@ fun DashboardScreen(
                     Text(state.message, style = MonospaceTextStyle, color = ErrorRed)
                 }
 
-                is DashboardUiState.Loaded -> LazyColumn(
+                is DashboardUiState.Loaded -> PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = { viewModel.refreshNow(onSessionExpired = onLogout) },
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(state.services) { service ->
-                        ServiceRow(service = service, onClick = { selectedService = service })
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(state.services) { service ->
+                            ServiceCard(
+                                service = service,
+                                onClick = {
+                                    if (!service.actions.isNullOrEmpty()) {
+                                        selectedService = service
+                                    } else if (service.url != null) {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(service.url)))
+                                    }
+                                },
+                                onLongClick = {
+                                    service.actions?.singleOrNull()?.let { handleActionTap(it) }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -141,60 +180,119 @@ fun DashboardScreen(
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
-            ActionSheetContent(
-                service = service,
-                onExecute = { action ->
-                    viewModel.executeAction(action)
-                    selectedService = null
-                },
-            )
+            ActionSheetContent(service = service, onActionTap = ::handleActionTap)
         }
     }
-}
 
-@Composable
-private fun ServiceRow(service: Service, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        StatusDot(service.status)
-        Text(
-            service.name,
-            style = MonospaceTextStyle,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
+    pendingAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { pendingAction = null },
+            title = { Text("Run ${action.label}?", style = MonospaceTextStyle) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.executeAction(action)
+                    pendingAction = null
+                    selectedService = null
+                }) {
+                    Text("Confirm", style = MonospaceTextStyle)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingAction = null }) {
+                    Text("Cancel", style = MonospaceTextStyle)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun StatusDot(status: String) {
-    val color = when (status) {
-        "online" -> OnlineGreen
-        "offline" -> ErrorRed
-        else -> BorderColor
-    }
-    Box(
+private fun ServiceCard(service: Service, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val hasActions = !service.actions.isNullOrEmpty()
+    val isClickable = hasActions || service.url != null
+    val statusColor = statusColorFor(service.status)
+
+    Column(
         modifier = Modifier
-            .size(8.dp)
-            .clip(CircleShape)
-            .background(color),
-    )
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+            .let {
+                if (isClickable) it.combinedClickable(onClick = onClick, onLongClick = onLongClick) else it
+            }
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Icon(
+            imageVector = iconFor(service.icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(26.dp),
+        )
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                service.name,
+                style = MonospaceTextStyle,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(statusColor))
+                Text(
+                    statusLabelFor(service.status),
+                    style = MonospaceTextStyle,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
+        when {
+            hasActions -> {
+                val count = service.actions!!.size
+                Text(
+                    "$count ${if (count == 1) "action" else "actions"}",
+                    style = MonospaceTextStyle,
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            service.url != null -> Text(
+                "Open UI",
+                style = MonospaceTextStyle,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            else -> Text("", fontSize = 9.sp)
+        }
+    }
+}
+
+private fun statusColorFor(status: String) = when (status) {
+    "online" -> OnlineGreen
+    "offline" -> ErrorRed
+    else -> BorderColor
+}
+
+private fun statusLabelFor(status: String) = when (status) {
+    "online" -> "Online"
+    "offline" -> "Offline"
+    else -> "Unknown"
 }
 
 @Composable
-private fun ActionSheetContent(service: Service, onExecute: (Action) -> Unit) {
-    val context = LocalContext.current
-    var pendingAction by remember { mutableStateOf<Action?>(null) }
-
+private fun ActionSheetContent(service: Service, onActionTap: (Action) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
         Text(
             service.name,
@@ -227,17 +325,7 @@ private fun ActionSheetContent(service: Service, onExecute: (Action) -> Unit) {
                             ActionButton(
                                 action = action,
                                 modifier = Modifier.weight(1f),
-                                onClick = {
-                                    when {
-                                        action.href != null -> {
-                                            context.startActivity(
-                                                Intent(Intent.ACTION_VIEW, Uri.parse(action.href))
-                                            )
-                                        }
-                                        action.confirm -> pendingAction = action
-                                        else -> onExecute(action)
-                                    }
-                                },
+                                onClick = { onActionTap(action) },
                             )
                         }
                         repeat(3 - row.size) {
@@ -247,27 +335,6 @@ private fun ActionSheetContent(service: Service, onExecute: (Action) -> Unit) {
                 }
             }
         }
-    }
-
-    pendingAction?.let { action ->
-        AlertDialog(
-            onDismissRequest = { pendingAction = null },
-            title = { Text("Run ${action.label}?", style = MonospaceTextStyle) },
-            confirmButton = {
-                TextButton(onClick = {
-                    onExecute(action)
-                    pendingAction = null
-                }) {
-                    Text("Confirm", style = MonospaceTextStyle)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingAction = null }) {
-                    Text("Cancel", style = MonospaceTextStyle)
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-        )
     }
 }
 

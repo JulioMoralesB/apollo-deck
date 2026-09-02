@@ -34,6 +34,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _actionResult = MutableStateFlow<String?>(null)
     val actionResult: StateFlow<String?> = _actionResult
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing
+
     private var pollingJob: Job? = null
 
     // Same 30s cadence as the web dashboard's polling loop.
@@ -43,6 +46,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             while (isActive) {
                 refresh(onSessionExpired)
                 delay(REFRESH_INTERVAL_MS)
+            }
+        }
+    }
+
+    // Pull-to-refresh — a one-off refresh outside the 30s cadence, so a
+    // manual pull is felt immediately instead of waiting for the next tick.
+    fun refreshNow(onSessionExpired: () -> Unit) {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                refresh(onSessionExpired)
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }
