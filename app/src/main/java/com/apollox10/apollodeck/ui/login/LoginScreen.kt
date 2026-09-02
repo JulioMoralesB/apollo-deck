@@ -20,11 +20,22 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.view.autofill.AutofillManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.autofill.AutofillNode
+import androidx.compose.ui.autofill.AutofillType
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalAutofill
+import androidx.compose.ui.platform.LocalAutofillTree
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -34,6 +45,7 @@ import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -41,6 +53,8 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isLoading = uiState is LoginUiState.Loading
+    val context = LocalContext.current
+    val autofillManager = remember { context.getSystemService(AutofillManager::class.java) }
 
     Box(
         modifier = Modifier
@@ -88,7 +102,9 @@ fun LoginScreen(
                     singleLine = true,
                     enabled = !isLoading,
                     colors = apolloTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .autofill(listOf(AutofillType.Username)) { viewModel.username = it },
                 )
 
                 OutlinedTextField(
@@ -100,7 +116,9 @@ fun LoginScreen(
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     colors = apolloTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .autofill(listOf(AutofillType.Password)) { viewModel.password = it },
                 )
 
                 TextButton(
@@ -142,7 +160,12 @@ fun LoginScreen(
                 }
 
                 Button(
-                    onClick = { viewModel.login(onLoginSuccess) },
+                    onClick = {
+                        viewModel.login {
+                            autofillManager?.commit()
+                            onLoginSuccess()
+                        }
+                    },
                     enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -172,6 +195,28 @@ fun LoginScreen(
             }
         }
     }
+}
+
+// The stable, non-experimental Compose autofill API — AutofillNode +
+// LocalAutofill — rather than the semantics-based ContentType API, which is
+// still internal at this project's Compose BOM version.
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun Modifier.autofill(
+    autofillTypes: List<AutofillType>,
+    onFill: (String) -> Unit,
+): Modifier {
+    val autofillNode = remember { AutofillNode(autofillTypes = autofillTypes, onFill = onFill) }
+    val autofill = LocalAutofill.current
+    LocalAutofillTree.current += autofillNode
+
+    return this
+        .onGloballyPositioned { autofillNode.boundingBox = it.boundsInWindow() }
+        .onFocusChanged { state ->
+            autofill?.run {
+                if (state.isFocused) requestAutofillForNode(autofillNode) else cancelAutofillForNode(autofillNode)
+            }
+        }
 }
 
 @Composable
