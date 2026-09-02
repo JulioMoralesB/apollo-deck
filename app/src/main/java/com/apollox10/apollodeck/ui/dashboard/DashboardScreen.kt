@@ -130,13 +130,18 @@ fun DashboardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (selectedService != null) {
-                        IconButton(onClick = { selectedServiceName = null }) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onBackground,
-                            )
+                    // Reserve the back button's slot unconditionally — the
+                    // title's start position stays fixed instead of
+                    // shifting right every time a back button appears.
+                    Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        if (selectedService != null) {
+                            IconButton(onClick = { selectedServiceName = null }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
                         }
                     }
                     Text(
