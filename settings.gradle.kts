@@ -15,5 +15,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "apollo-deck"
+include(":core")
 include(":app")
 include(":wear")
