@@ -1,6 +1,7 @@
 package com.apollox10.apollodeck.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -37,3 +38,14 @@ fun ApolloDeckTheme(content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+// Shared text field styling — used anywhere the app collects text input
+// (login, settings) so every form looks like the same product.
+@Composable
+fun apolloTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MaterialTheme.colorScheme.onBackground,
+    unfocusedBorderColor = BorderColor,
+    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+    cursorColor = MaterialTheme.colorScheme.onBackground,
+)
