@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -101,6 +102,44 @@ fun LoginScreen(
                     colors = apolloTextFieldColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                TextButton(
+                    onClick = { viewModel.showCloudflareAccessFields = !viewModel.showCloudflareAccessFields },
+                ) {
+                    Text(
+                        text = if (viewModel.showCloudflareAccessFields) {
+                            "Hide Cloudflare Access"
+                        } else {
+                            "Behind Cloudflare Access?"
+                        },
+                        style = MonospaceTextStyle,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+
+                if (viewModel.showCloudflareAccessFields) {
+                    OutlinedTextField(
+                        value = viewModel.cloudflareAccessClientId,
+                        onValueChange = { viewModel.cloudflareAccessClientId = it },
+                        label = { Text("Access Client ID", style = MonospaceTextStyle) },
+                        singleLine = true,
+                        enabled = !isLoading,
+                        colors = apolloTextFieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    OutlinedTextField(
+                        value = viewModel.cloudflareAccessClientSecret,
+                        onValueChange = { viewModel.cloudflareAccessClientSecret = it },
+                        label = { Text("Access Client Secret", style = MonospaceTextStyle) },
+                        singleLine = true,
+                        enabled = !isLoading,
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = apolloTextFieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
 
                 Button(
                     onClick = { viewModel.login(onLoginSuccess) },
