@@ -9,18 +9,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.apollox10.apollodeck.core.store.TokenStore
+import com.apollox10.apollodeck.ui.login.LoginScreen
+import com.apollox10.apollodeck.ui.theme.ApolloDeckTheme
 
-// Scaffold placeholder — no login, no network calls yet. Talks to a
-// self-hosted apollo-server-dashboard backend once implemented; see README.
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            ApolloDeckTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ApolloDeckPlaceholder()
+                    ApolloDeckApp()
                 }
             }
         }
@@ -28,8 +34,21 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ApolloDeckPlaceholder() {
+fun ApolloDeckApp() {
+    val context = LocalContext.current
+    var loggedIn by remember { mutableStateOf(TokenStore(context).isLoggedIn()) }
+
+    if (loggedIn) {
+        DashboardPlaceholder()
+    } else {
+        LoginScreen(onLoginSuccess = { loggedIn = true })
+    }
+}
+
+// No dashboard screen yet — widgets, tiles, and the service list come next.
+@Composable
+private fun DashboardPlaceholder() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Apollo Deck — scaffold")
+        Text("Logged in — dashboard coming soon")
     }
 }
