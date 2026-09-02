@@ -17,7 +17,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import android.view.autofill.AutofillManager
@@ -44,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
+import com.apollox10.apollodeck.ui.theme.apolloTextFieldColors
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -218,12 +218,3 @@ private fun Modifier.autofill(
             }
         }
 }
-
-@Composable
-private fun apolloTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = MaterialTheme.colorScheme.onBackground,
-    unfocusedBorderColor = BorderColor,
-    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-    cursorColor = MaterialTheme.colorScheme.onBackground,
-)

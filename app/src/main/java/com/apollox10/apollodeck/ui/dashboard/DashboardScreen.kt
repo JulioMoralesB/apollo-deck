@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +57,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.ui.icons.iconFor
+import com.apollox10.apollodeck.ui.settings.SettingsScreen
 import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
@@ -79,9 +81,10 @@ fun DashboardScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedServiceName by remember { mutableStateOf<String?>(null) }
     var pendingAction by remember { mutableStateOf<Action?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = selectedServiceName != null) {
-        selectedServiceName = null
+    BackHandler(enabled = selectedServiceName != null || showSettings) {
+        if (selectedServiceName != null) selectedServiceName = null else showSettings = false
     }
 
     fun handleActionTap(action: Action) {
@@ -130,22 +133,40 @@ fun DashboardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Reserve the back button's slot unconditionally — the
-                    // title's start position stays fixed instead of
-                    // shifting right every time a back button appears.
+                    // Reserve this slot unconditionally — the title's start
+                    // position stays fixed instead of shifting right
+                    // whenever its contents change.
                     Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                        if (selectedService != null) {
-                            IconButton(onClick = { selectedServiceName = null }) {
+                        when {
+                            selectedService != null -> IconButton(onClick = { selectedServiceName = null }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
                                     tint = MaterialTheme.colorScheme.onBackground,
                                 )
                             }
+                            showSettings -> IconButton(onClick = { showSettings = false }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
+                            else -> IconButton(onClick = { showSettings = true }) {
+                                Icon(
+                                    Icons.Default.Settings,
+                                    contentDescription = "Settings",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
                         }
                     }
                     Text(
-                        selectedService?.name ?: "Apollo Deck",
+                        when {
+                            selectedService != null -> selectedService.name
+                            showSettings -> "Settings"
+                            else -> "Apollo Deck"
+                        },
                         style = MonospaceTextStyle,
                         fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -156,7 +177,9 @@ fun DashboardScreen(
                 }
             }
 
-            when (val state = uiState) {
+            if (showSettings) {
+                SettingsScreen(onSaved = onLogout)
+            } else when (val state = uiState) {
                 is DashboardUiState.Loading -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
