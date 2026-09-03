@@ -1,5 +1,6 @@
 package com.apollox10.apollodeck.ui.icons
 
+import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -60,6 +61,7 @@ import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.apollox10.apollodeck.core.store.IconOverrideStore
 
 // Maps the Lucide icon names used in services.yaml (and rendered by the web
 // dashboard's utils/icons.jsx) to Material Icons. The web resolves ANY
@@ -176,3 +178,14 @@ val availableIcons: List<Pair<String, ImageVector>> = listOf(
 // a widget was configured).
 fun widgetIconFor(name: String): ImageVector =
     availableIcons.firstOrNull { it.first == name }?.second ?: Icons.Default.Info
+
+// What every dashboard-facing icon call site should use instead of iconFor
+// directly (the dashboard grid, the widget/tile action pickers) — checks
+// IconOverrideStore first, since a user override for a dashboard icon name
+// (see ui/icons/IconOverrideScreen.kt) takes precedence over iconFor's
+// static dictionary. The override's value is itself an id from
+// availableIcons, the same namespace the widget's own icon picker uses.
+fun resolvedIconFor(context: Context, name: String?): ImageVector {
+    val overrideId = name?.let { IconOverrideStore(context).getOverride(it) }
+    return if (overrideId != null) widgetIconFor(overrideId) else iconFor(name)
+}

@@ -26,19 +26,28 @@ class TileActionReceiver : BroadcastReceiver() {
         val endpoint = intent.getStringExtra(EXTRA_ENDPOINT) ?: return
         val method = intent.getStringExtra(EXTRA_METHOD) ?: return
         val trackStatusTileId = intent.getIntExtra(EXTRA_TRACK_STATUS_TILE_ID, NO_TILE_ID)
+        // Not context itself — a BroadcastReceiver's context actively
+        // refuses bindService() (ReceiverCallNotAllowedException), which is
+        // exactly what TileService.getUpdater(...).requestUpdate() does
+        // internally. Confirmed on real hardware: this crashed the whole
+        // process on every single execute, success or failure, right after
+        // the status was written but before the revert could be scheduled
+        // — which is what actually left the tile stuck on its last result
+        // (not, as first suspected, WorkManager deferring the revert job).
+        val appContext = context.applicationContext
 
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                val client = ApiClient.create(context, debugLogging = BuildConfig.DEBUG)
+                val client = ApiClient.create(appContext, debugLogging = BuildConfig.DEBUG)
                 val result = client.actionExecutor.execute(endpoint, method)
                 if (trackStatusTileId != NO_TILE_ID) {
                     val status = if (result.success) TileActionStatus.Success else TileActionStatus.Error
-                    reportStatus(context, trackStatusTileId, status)
+                    reportStatus(appContext, trackStatusTileId, status)
                 }
             } catch (e: Exception) {
                 if (trackStatusTileId != NO_TILE_ID) {
-                    reportStatus(context, trackStatusTileId, TileActionStatus.Error)
+                    reportStatus(appContext, trackStatusTileId, TileActionStatus.Error)
                 }
             } finally {
                 pendingResult.finish()

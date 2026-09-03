@@ -28,13 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.sync.TileGridActionRef
 import com.apollox10.apollodeck.core.tile.TILE_ACCENT_COLORS
-import com.apollox10.apollodeck.ui.icons.iconFor
+import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
@@ -162,6 +163,7 @@ private fun ColorSwatch(color: Int, isSelected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun ActionSelectRow(action: Action, position: Int?, onClick: () -> Unit) {
+    val context = LocalContext.current
     val isSelected = position != null
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -195,7 +197,7 @@ private fun ActionSelectRow(action: Action, position: Int?, onClick: () -> Unit)
             }
         }
         Icon(
-            imageVector = iconFor(action.icon),
+            imageVector = resolvedIconFor(context, action.icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(start = 12.dp).size(20.dp),

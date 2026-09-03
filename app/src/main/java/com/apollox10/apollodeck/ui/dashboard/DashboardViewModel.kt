@@ -17,12 +17,22 @@ import retrofit2.HttpException
 import java.io.IOException
 
 private const val REFRESH_INTERVAL_MS = 30_000L
+// How long a card holds its success/error tint before reverting to idle —
+// matches the web dashboard's ActionPanel.jsx exactly (setTimeout(..., 2000)).
+private const val ACTION_STATE_HOLD_MS = 2_000L
 
 sealed interface DashboardUiState {
     data object Loading : DashboardUiState
     data class Loaded(val services: List<Service>) : DashboardUiState
     data class Error(val message: String) : DashboardUiState
 }
+
+// Mirrors the web dashboard's per-card actionStates: a brief loading spinner
+// while in flight, then a green/red flash before reverting — see
+// ActionPanel.jsx's executeAction. Keyed by the action's endpoint in
+// DashboardViewModel since that's unique within whichever single service's
+// action grid is currently open.
+enum class ActionCardState { Loading, Success, Error }
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -33,6 +43,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _actionResult = MutableStateFlow<String?>(null)
     val actionResult: StateFlow<String?> = _actionResult
+
+    private val _actionStates = MutableStateFlow<Map<String, ActionCardState>>(emptyMap())
+    val actionStates: StateFlow<Map<String, ActionCardState>> = _actionStates
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
@@ -82,16 +95,22 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val endpoint = action.endpoint ?: return
         val method = action.method ?: "POST"
         viewModelScope.launch {
-            try {
+            _actionStates.value = _actionStates.value + (endpoint to ActionCardState.Loading)
+            val cardState = try {
                 val result = client.actionExecutor.execute(endpoint, method)
                 _actionResult.value = when {
                     !result.message.isNullOrBlank() -> "${action.label}: ${result.message}"
                     result.success -> "${action.label}: done"
                     else -> "${action.label}: failed"
                 }
+                if (result.success) ActionCardState.Success else ActionCardState.Error
             } catch (e: Exception) {
                 _actionResult.value = "${action.label}: ${e.message ?: "failed"}"
+                ActionCardState.Error
             }
+            _actionStates.value = _actionStates.value + (endpoint to cardState)
+            delay(ACTION_STATE_HOLD_MS)
+            _actionStates.value = _actionStates.value - endpoint
         }
     }
 

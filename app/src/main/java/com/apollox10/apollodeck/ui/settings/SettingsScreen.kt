@@ -33,6 +33,7 @@ import com.apollox10.apollodeck.ui.theme.apolloTextFieldColors
 fun SettingsScreen(
     onSaved: () -> Unit,
     onConfigureWatchTile: () -> Unit,
+    onIconOverrides: () -> Unit,
     viewModel: SettingsViewModel = viewModel(),
 ) {
     Box(
@@ -130,6 +131,24 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Configure watch tile", style = MonospaceTextStyle)
+            }
+
+            Text(
+                "Icons",
+                style = MonospaceTextStyle,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Button(
+                onClick = onIconOverrides,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Icon overrides", style = MonospaceTextStyle)
             }
         }
     }
