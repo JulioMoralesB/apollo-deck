@@ -28,6 +28,45 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".tile.TileConfigActivity"
+            android:exported="true"
+            android:label="@string/tile_action_label" />
+
+        <receiver
+            android:name=".tile.TileActionReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".tile.ActionTileService"
+            android:exported="true"
+            android:label="@string/tile_action_label"
+            android:description="@string/tile_action_description"
+            android:icon="@android:drawable/sym_def_app_icon"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_action_preview" />
+        </service>
+
+        <service
+            android:name=".tile.MultiActionTileService"
+            android:exported="true"
+            android:label="@string/tile_multi_action_label"
+            android:description="@string/tile_multi_action_description"
+            android:icon="@android:drawable/sym_def_app_icon"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_multi_action_preview" />
+        </service>
+
     </application>
 
 </manifest>
