@@ -5,52 +5,81 @@ import androidx.wear.protolayout.ActionBuilders
 import androidx.wear.protolayout.ColorBuilders.argb
 import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters
 import androidx.wear.protolayout.DimensionBuilders.dp
+import androidx.wear.protolayout.DimensionBuilders.expand
+import androidx.wear.protolayout.DimensionBuilders.wrap
+import androidx.wear.protolayout.LayoutElementBuilders.Box
 import androidx.wear.protolayout.LayoutElementBuilders.Column
+import androidx.wear.protolayout.LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER
 import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement
+import androidx.wear.protolayout.LayoutElementBuilders.Row
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
+import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_CENTER
 import androidx.wear.protolayout.ModifiersBuilders.Clickable
 import androidx.wear.protolayout.ResourceBuilders.Resources
 import androidx.wear.protolayout.TimelineBuilders.Timeline
-import androidx.wear.protolayout.material.ChipColors
-import androidx.wear.protolayout.material.CompactChip
+import androidx.wear.protolayout.material.Button
+import androidx.wear.protolayout.material.ButtonColors
+import androidx.wear.protolayout.material.ButtonDefaults
 import androidx.wear.protolayout.material.Text
 import androidx.wear.protolayout.material.Typography
-import androidx.wear.protolayout.material.layouts.PrimaryLayout
 import androidx.wear.tiles.RequestBuilders.ResourcesRequest
 import androidx.wear.tiles.RequestBuilders.TileRequest
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import com.apollox10.apollodeck.core.model.Action
-import com.apollox10.apollodeck.core.net.ApiClient
-import com.apollox10.apollodeck.wear.BuildConfig
+import com.apollox10.apollodeck.core.sync.TileGridActionRef
+import com.apollox10.apollodeck.core.tile.TILE_ACCENT_COLORS
+import com.apollox10.apollodeck.wear.icons.iconFor
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.guava.future
-import kotlinx.coroutines.withTimeoutOrNull
 
-private const val RESOURCES_VERSION = "1"
-private const val MAX_ACTIONS = 4
-private const val FETCH_TIMEOUT_MS = 8_000L
+private const val GRID_COLUMNS = 3
+// Configured from the phone (see TileGridSelection): as many as the user
+// picked, up to this cap, so the grid never outgrows a round face. With
+// nothing configured yet, the unconfigured default is smaller (see
+// FALLBACK_ACTIONS) so a fresh watch isn't showing a wall of icons the user
+// never chose.
+private const val MAX_GRID_ACTIONS = 9
+private const val FALLBACK_ACTIONS = 4
+private const val ICON_SIZE_PX = 48
+private const val CLICK_ID_PREFIX = "action_"
+private const val RES_ID_PREFIX = "grid_icon_"
 
 private data class MultiTileAction(val serviceName: String, val action: Action)
 
-// Shows up to MAX_ACTIONS executable actions across every service as
-// tappable rows, no configuration needed. Tapping one fires it immediately
-// (no confirm dialog, no "long-press to confirm" — there's no room for
-// either on a tile, same tradeoff the widget made). Unlike
-// ActionTileService, taps here aren't tracked/reverted since there's no
-// single result slot to show it in; the tap just runs the action, matching
-// how fire-and-forget quick-action tiles are in other apps (Home
-// Assistant's Wear ShortcutsTile does the same).
+// A grid of tappable icons — one per action, no labels — styled after
+// Home Assistant's Wear shortcuts tile and the watch's own app-launcher
+// grid, rather than the stacked text rows this used to be. Which actions
+// show, in what order, and the accent color they're tinted with are all
+// configured from the phone app (see TileGridSelection/TileGridSync) since
+// picking many actions (or a color) on a watch keyboard-less UI is
+// painful; with nothing configured yet, this falls back to the first few
+// executable actions across all services, in the palette's default color,
+// so the tile isn't empty out of the box.
+//
+// Tapping an icon fires it immediately (no confirm dialog, no "long-press
+// to confirm" — there's no room for either on a tile, same tradeoff the
+// widget made). Unlike ActionTileService, taps here aren't tracked/
+// reverted since there's no single result slot to show it in; the tap just
+// runs the action, fire-and-forget.
 class MultiActionTileService : TileService() {
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
 
+    // The system calls onTileRequest then onTileResourcesRequest back to
+    // back for one render pass, on the same live service instance — this is
+    // resolved once per pass and reused here rather than recomputed for the
+    // resources call too.
+    @Volatile private var lastResolvedActions: List<MultiTileAction>? = null
+
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<Tile> = serviceScope.future {
-        val actions = fetchActions()
+        val actions = resolveDisplayedActionsFast()
+        lastResolvedActions = actions
+        enqueueGridTileRefresh(applicationContext)
 
         val clickedIndex = requestParams.currentState.lastClickableId
             .removePrefix(CLICK_ID_PREFIX)
@@ -65,74 +94,113 @@ class MultiActionTileService : TileService() {
                         action = TileActionReceiver.ACTION_EXECUTE
                         putExtra(TileActionReceiver.EXTRA_ENDPOINT, endpoint)
                         putExtra(TileActionReceiver.EXTRA_METHOD, method)
-                        putExtra(TileActionReceiver.EXTRA_TRACK_STATUS, false)
+                        putExtra(TileActionReceiver.EXTRA_TRACK_STATUS_TILE_ID, TileActionReceiver.NO_TILE_ID)
                     },
                 )
             }
         }
 
+        val accentColor = loadCachedTileGridSelection(applicationContext)?.accentColor ?: TILE_ACCENT_COLORS.first()
         Tile.Builder()
-            .setResourcesVersion(RESOURCES_VERSION)
-            .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams.deviceConfiguration, actions)))
+            .setResourcesVersion(resourcesVersionFor(actions))
+            .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams.deviceConfiguration, actions, accentColor)))
             .build()
     }
 
     override fun onTileResourcesRequest(requestParams: ResourcesRequest): ListenableFuture<Resources> =
         serviceScope.future {
-            Resources.Builder().setVersion(RESOURCES_VERSION).build()
+            val actions = lastResolvedActions ?: resolveDisplayedActionsFast()
+            val builder = Resources.Builder().setVersion(resourcesVersionFor(actions))
+            actions.forEachIndexed { index, item ->
+                builder.addIdToImageMapping("$RES_ID_PREFIX$index", iconFor(item.action.icon).toInlineImageResource(ICON_SIZE_PX))
+            }
+            builder.build()
         }
+
+    // See ActionTileService's identical helper: the renderer only refetches
+    // resources when this string changes, and the icon set here is fully
+    // dynamic (phone-configured selection, or the live top-N fallback), so
+    // a hardcoded constant would risk serving stale icon bitmaps after the
+    // selection changes.
+    private fun resourcesVersionFor(actions: List<MultiTileAction>): String =
+        actions.joinToString(",") { "${it.serviceName}#${it.action.icon}" }.hashCode().toString()
 
     override fun onDestroy() {
         super.onDestroy()
         serviceJob.cancel()
     }
 
-    private suspend fun fetchActions(): List<MultiTileAction> {
-        val actions = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
-            try {
-                val client = ApiClient.create(applicationContext, debugLogging = BuildConfig.DEBUG)
-                client.authenticatedApi.getServices()
-                    .flatMap { service ->
-                        (service.actions.orEmpty())
-                            .filter { it.method != null && it.method != "href" && it.endpoint != null }
-                            .map { MultiTileAction(service.name, it) }
-                    }
-            } catch (e: Exception) {
-                null
-            }
+    // Renders purely from local state — no network call, no Data Layer
+    // read — so this is always fast regardless of network conditions or
+    // cold-start overhead. Real hardware testing found the system
+    // cancelling onTileRequest/onTileResourcesRequest before a live
+    // fetch-then-sync-read could complete even once the two were run
+    // concurrently: a cold app process alone can eat most of a Tile's
+    // response budget before any of that code even runs. See
+    // TileActionsCache/TileGridSync for what keeps this local state fresh.
+    private fun resolveDisplayedActionsFast(): List<MultiTileAction> {
+        val cachedActions = loadCachedGridActions(applicationContext)
+            .map { (serviceName, action) -> MultiTileAction(serviceName, action) }
+        val selection = loadCachedTileGridSelection(applicationContext)?.actions
+        return if (!selection.isNullOrEmpty()) {
+            selection.mapNotNull { ref -> cachedActions.find { it.matches(ref) } }.take(MAX_GRID_ACTIONS)
+        } else {
+            cachedActions.take(FALLBACK_ACTIONS)
         }
-        return actions.orEmpty().take(MAX_ACTIONS)
     }
 
-    private fun layout(deviceParams: DeviceParameters, actions: List<MultiTileAction>): LayoutElement {
+    private fun MultiTileAction.matches(ref: TileGridActionRef) =
+        serviceName == ref.serviceName && action.endpoint == ref.endpoint
+
+    private fun layout(deviceParams: DeviceParameters, actions: List<MultiTileAction>, accentColor: Int): LayoutElement {
         if (actions.isEmpty()) {
-            return PrimaryLayout.Builder(deviceParams)
-                .setContent(
-                    Text.Builder(this, "No actions available")
-                        .setTypography(Typography.TYPOGRAPHY_BODY1)
+            return Box.Builder()
+                .setWidth(expand())
+                .setHeight(expand())
+                .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+                .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
+                .addContent(
+                    Text.Builder(this, "No actions configured")
+                        .setTypography(Typography.TYPOGRAPHY_CAPTION1)
                         .setColor(argb(TileColors.onSurface))
+                        .setMaxLines(2)
+                        .setMultilineAlignment(HORIZONTAL_ALIGN_CENTER)
                         .build(),
                 )
                 .build()
         }
 
-        val column = Column.Builder()
-        actions.forEachIndexed { index, item ->
-            if (index > 0) column.addContent(Spacer.Builder().setHeight(dp(4f)).build())
-            val clickable = Clickable.Builder()
-                .setId("$CLICK_ID_PREFIX$index")
-                .setOnClick(ActionBuilders.LoadAction.Builder().build())
-                .build()
-            column.addContent(
-                CompactChip.Builder(this, item.action.label, clickable, deviceParams)
-                    .setChipColors(ChipColors.primaryChipColors(TileColors.theme))
-                    .build(),
-            )
-        }
-        return column.build()
-    }
+        val buttonColors = ButtonColors(accentColor, TileColors.onAccent)
+        val grid = Column.Builder().setWidth(wrap()).setHeight(wrap()).setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+        actions.chunked(GRID_COLUMNS).forEachIndexed { rowIndex, rowItems ->
+            if (rowIndex > 0) grid.addContent(Spacer.Builder().setHeight(dp(8f)).build())
 
-    private companion object {
-        const val CLICK_ID_PREFIX = "action_"
+            val row = Row.Builder().setVerticalAlignment(VERTICAL_ALIGN_CENTER)
+            rowItems.forEachIndexed { columnIndex, item ->
+                if (columnIndex > 0) row.addContent(Spacer.Builder().setWidth(dp(8f)).build())
+                val index = rowIndex * GRID_COLUMNS + columnIndex
+                val clickable = Clickable.Builder()
+                    .setId("$CLICK_ID_PREFIX$index")
+                    .setOnClick(ActionBuilders.LoadAction.Builder().build())
+                    .build()
+                row.addContent(
+                    Button.Builder(this, clickable)
+                        .setSize(ButtonDefaults.DEFAULT_SIZE)
+                        .setButtonColors(buttonColors)
+                        .setIconContent("$RES_ID_PREFIX$index", ButtonDefaults.recommendedIconSize(ButtonDefaults.DEFAULT_SIZE))
+                        .setContentDescription(item.action.label)
+                        .build(),
+                )
+            }
+            grid.addContent(row.build())
+        }
+
+        return Box.Builder()
+            .setWidth(expand())
+            .setHeight(expand())
+            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+            .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
+            .addContent(grid.build())
+            .build()
     }
 }
