@@ -7,4 +7,5 @@
     android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:configure="com.apollox10.apollodeck.widget.ActionWidgetConfigureActivity"
+    android:widgetFeatures="reconfigurable"
     android:updatePeriodMillis="0" />

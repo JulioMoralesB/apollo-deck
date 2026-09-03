@@ -1,11 +1,6 @@
 package com.apollox10.apollodeck.widget
 
 import android.content.Context
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.glance.GlanceId
-import androidx.glance.appwidget.state.getAppWidgetState
-import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.state.PreferencesGlanceStateDefinition
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -21,30 +16,54 @@ data class WidgetActionConfig(
     val label: String,
     val endpoint: String,
     val method: String,
-    // The widget always executes on tap, with no confirmation dialog — a
-    // Glance widget can't show one without launching an Activity, and the
+    // The widget always executes on tap, with no confirmation dialog —
+    // there's no way to show one without launching an Activity, and the
     // point is a single tap. This is carried through purely so the widget
     // can render a visual warning as an ongoing reminder for actions that
     // require confirmation everywhere else.
     val confirm: Boolean,
+    // Defaults to the action's own dashboard icon at configure time, but can
+    // be overridden in the icon picker step — an id resolvable via
+    // ui.icons.widgetIconFor.
+    val iconName: String,
+    // Style, chosen in the configure flow's last step. Defaults keep old
+    // configs (saved before this field existed) rendering exactly as
+    // before, since a missing field just decodes to its default.
+    val accentId: String = "default",
+    val showBackground: Boolean = true,
+    val showLabel: Boolean = true,
+    val iconSizeDp: Int = WidgetIconSize.Medium.dp,
 )
 
-private val CONFIG_KEY = stringPreferencesKey("widget_action_config")
+// Plain SharedPreferences, keyed by the raw appWidgetId — not DataStore
+// bound to a Glance session. Reads need to be instant and reliable from a
+// BroadcastReceiver's onReceive (not a suspend context) and from a
+// CoroutineWorker running under tight scheduling constraints; a
+// synchronous, process-independent store sidesteps both.
+internal const val PREFS_NAME = "apollo_deck_widgets"
+private fun configKey(appWidgetId: Int) = "config_$appWidgetId"
 
-suspend fun saveWidgetActionConfig(context: Context, glanceId: GlanceId, config: WidgetActionConfig) {
-    updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
-        prefs.toMutablePreferences().apply {
-            this[CONFIG_KEY] = Json.encodeToString(config)
-        }
-    }
+fun saveWidgetActionConfig(context: Context, appWidgetId: Int, config: WidgetActionConfig) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(configKey(appWidgetId), Json.encodeToString(config))
+        .apply()
 }
 
-suspend fun loadWidgetActionConfig(context: Context, glanceId: GlanceId): WidgetActionConfig? {
-    val prefs = getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)
-    val raw = prefs[CONFIG_KEY] ?: return null
+fun loadWidgetActionConfig(context: Context, appWidgetId: Int): WidgetActionConfig? {
+    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(configKey(appWidgetId), null) ?: return null
     return try {
         Json.decodeFromString(raw)
     } catch (e: Exception) {
         null
     }
+}
+
+fun deleteWidgetActionConfig(context: Context, appWidgetId: Int) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .remove(configKey(appWidgetId))
+        .remove(statusKey(appWidgetId))
+        .apply()
 }
