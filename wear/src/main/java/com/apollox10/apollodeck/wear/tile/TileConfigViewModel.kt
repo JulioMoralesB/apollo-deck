@@ -43,18 +43,4 @@ class TileConfigViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-
-    fun select(item: TileConfigItem) {
-        saveTileActionConfig(
-            getApplication(),
-            TileActionConfig(
-                serviceName = item.serviceName,
-                label = item.action.label,
-                endpoint = item.action.endpoint ?: return,
-                method = item.action.method ?: return,
-                confirm = item.action.confirm,
-            ),
-        )
-        ActionTileService.requestUpdate(getApplication())
-    }
 }

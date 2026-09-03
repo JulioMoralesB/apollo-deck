@@ -32,6 +32,7 @@ import com.apollox10.apollodeck.ui.theme.apolloTextFieldColors
 @Composable
 fun SettingsScreen(
     onSaved: () -> Unit,
+    onConfigureWatchTile: () -> Unit,
     viewModel: SettingsViewModel = viewModel(),
 ) {
     Box(
@@ -111,6 +112,24 @@ fun SettingsScreen(
 
             viewModel.errorMessage?.let {
                 Text(it, style = MonospaceTextStyle, color = ErrorRed, fontSize = 12.sp)
+            }
+
+            Text(
+                "Watch",
+                style = MonospaceTextStyle,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Button(
+                onClick = onConfigureWatchTile,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Configure watch tile", style = MonospaceTextStyle)
             }
         }
     }

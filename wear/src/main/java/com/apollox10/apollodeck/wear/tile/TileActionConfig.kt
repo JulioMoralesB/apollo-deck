@@ -6,11 +6,14 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-// What the single-action tile is pinned to. Unlike the phone's home-screen
-// widget (one config per appWidgetId), a Wear tile of a given type is
-// realistically added once, so this is one global config, not keyed per
-// tile instance — simpler, and there's no per-instance configure API for
-// Tiles to hang a per-instance key off anyway (see TileConfigActivity).
+// What one pinned single-action tile is bound to. Keyed by the Tile's own
+// numeric tileId (androidx.wear.tiles.RequestBuilders.TileRequest#getTileId,
+// available since tiles 1.6.0) so the tile can be pinned more than once,
+// each instance independently configured — the same shape as the phone
+// widget's per-appWidgetId config, just with a different id source (a Tile
+// has no per-instance configure Activity extras of its own; tileId is
+// threaded through as a LaunchAction intent extra instead, see
+// ActionTileService/TileConfigActivity).
 @Serializable
 data class TileActionConfig(
     val serviceName: String,
@@ -18,24 +21,32 @@ data class TileActionConfig(
     val endpoint: String,
     val method: String,
     val confirm: Boolean,
+    // The action's own dashboard icon at configure time — see
+    // wear/.../icons/IconMapping.kt. No per-tile icon picker like the
+    // widget has; a Tile's config screen only has room to pick the action.
+    val iconName: String,
+    // Chosen from TILE_ACCENT_COLORS in the same configure flow. Defaults
+    // to the palette's first entry (the old hardcoded blue) so a config
+    // saved before this field existed keeps rendering the same way.
+    val accentColor: Int = TileColors.primary,
 )
 
 enum class TileActionStatus { Success, Error }
 
 private const val PREFS_NAME = "apollo_deck_tiles"
-private const val KEY_CONFIG = "single_action_config"
-private const val KEY_STATUS = "single_action_status"
+private fun configKey(tileId: Int) = "action_config_$tileId"
+private fun statusKey(tileId: Int) = "action_status_$tileId"
 
-fun saveTileActionConfig(context: Context, config: TileActionConfig) {
+fun saveTileActionConfig(context: Context, tileId: Int, config: TileActionConfig) {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
-        .putString(KEY_CONFIG, Json.encodeToString(config))
+        .putString(configKey(tileId), Json.encodeToString(config))
         .apply()
 }
 
-fun loadTileActionConfig(context: Context): TileActionConfig? {
+fun loadTileActionConfig(context: Context, tileId: Int): TileActionConfig? {
     val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .getString(KEY_CONFIG, null) ?: return null
+        .getString(configKey(tileId), null) ?: return null
     return try {
         Json.decodeFromString(raw)
     } catch (e: Exception) {
@@ -43,18 +54,18 @@ fun loadTileActionConfig(context: Context): TileActionConfig? {
     }
 }
 
-fun setTileActionStatus(context: Context, status: TileActionStatus?) {
+fun setTileActionStatus(context: Context, tileId: Int, status: TileActionStatus?) {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .apply {
-            if (status == null) remove(KEY_STATUS) else putString(KEY_STATUS, status.name)
+            if (status == null) remove(statusKey(tileId)) else putString(statusKey(tileId), status.name)
         }
         .apply()
 }
 
-fun loadTileActionStatus(context: Context): TileActionStatus? {
+fun loadTileActionStatus(context: Context, tileId: Int): TileActionStatus? {
     val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .getString(KEY_STATUS, null) ?: return null
+        .getString(statusKey(tileId), null) ?: return null
     return try {
         TileActionStatus.valueOf(raw)
     } catch (e: Exception) {

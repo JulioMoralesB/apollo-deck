@@ -62,6 +62,7 @@ import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
 import com.apollox10.apollodeck.ui.theme.OnlineGreen
+import com.apollox10.apollodeck.wearsync.TileGridConfigScreen
 
 // Cards size themselves to fit this, rather than a fixed column count — the
 // same grid reflows on rotation instead of keeping a portrait column count
@@ -82,9 +83,14 @@ fun DashboardScreen(
     var selectedServiceName by remember { mutableStateOf<String?>(null) }
     var pendingAction by remember { mutableStateOf<Action?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showTileGridConfig by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = selectedServiceName != null || showSettings) {
-        if (selectedServiceName != null) selectedServiceName = null else showSettings = false
+    BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig) {
+        when {
+            selectedServiceName != null -> selectedServiceName = null
+            showTileGridConfig -> showTileGridConfig = false
+            else -> showSettings = false
+        }
     }
 
     fun handleActionTap(action: Action) {
@@ -145,6 +151,13 @@ fun DashboardScreen(
                                     tint = MaterialTheme.colorScheme.onBackground,
                                 )
                             }
+                            showTileGridConfig -> IconButton(onClick = { showTileGridConfig = false }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
                             showSettings -> IconButton(onClick = { showSettings = false }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
@@ -164,6 +177,7 @@ fun DashboardScreen(
                     Text(
                         when {
                             selectedService != null -> selectedService.name
+                            showTileGridConfig -> "Watch Tile"
                             showSettings -> "Settings"
                             else -> "Apollo Deck"
                         },
@@ -177,8 +191,10 @@ fun DashboardScreen(
                 }
             }
 
-            if (showSettings) {
-                SettingsScreen(onSaved = onLogout)
+            if (showTileGridConfig) {
+                TileGridConfigScreen(onSaved = { showTileGridConfig = false })
+            } else if (showSettings) {
+                SettingsScreen(onSaved = onLogout, onConfigureWatchTile = { showTileGridConfig = true })
             } else when (val state = uiState) {
                 is DashboardUiState.Loading -> Box(
                     modifier = Modifier.fillMaxSize(),

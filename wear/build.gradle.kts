@@ -61,6 +61,11 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.tooling.preview)
+    // Tiles render icons as rasterized bitmaps baked into inline protolayout
+    // image resources (there's no live Compose tree for a Tile to draw
+    // into) — same Material Icons dictionary the phone app uses for
+    // dashboard/widget icons, see wear/.../icons/IconMapping.kt.
+    implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.wear.compose.material)
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.play.services.wearable)
