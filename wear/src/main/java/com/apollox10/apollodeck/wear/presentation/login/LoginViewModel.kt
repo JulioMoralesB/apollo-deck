@@ -10,6 +10,8 @@ import com.apollox10.apollodeck.core.auth.AuthRepository
 import com.apollox10.apollodeck.core.net.ApiClient
 import com.apollox10.apollodeck.core.store.ServerConfigStore
 import com.apollox10.apollodeck.wear.BuildConfig
+import com.apollox10.apollodeck.wear.sync.PhoneSessionSync
+import com.apollox10.apollodeck.wear.sync.PhoneSyncResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -22,12 +24,12 @@ sealed interface LoginUiState {
     data class Error(val message: String) : LoginUiState
 }
 
-// Standalone login for the watch — no phone pairing, no shared session.
-// Cloudflare Access fields aren't offered here (phone's LoginViewModel has
-// them): a watch-sized form for a second, less common credential pair isn't
-// worth the screen real estate yet. Someone whose backend sits behind
-// Access can still set it up once on the phone; this just doesn't cover it
-// standalone.
+// Typing server URL + username + password (and, if the backend needs it,
+// Cloudflare Access credentials) on a watch keyboard is painful, so
+// "sign in from phone" is the primary path — it pulls the already-logged-in
+// session from a paired phone over the Wear Data Layer (see
+// PhoneSessionSync). The manual form below stays as a fallback for a watch
+// used without a phone nearby.
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     var serverUrl by mutableStateOf(ServerConfigStore(application).getBaseUrl() ?: "")
@@ -36,6 +38,24 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState: StateFlow<LoginUiState> = _uiState
+
+    private val phoneSessionSync = PhoneSessionSync(application)
+
+    fun signInFromPhone(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = LoginUiState.Loading
+            when (val result = phoneSessionSync.requestSessionFromPhone()) {
+                PhoneSyncResult.Success -> {
+                    _uiState.value = LoginUiState.Idle
+                    onSuccess()
+                }
+                PhoneSyncResult.NotLoggedInOnPhone ->
+                    _uiState.value = LoginUiState.Error("Sign in on the phone app first")
+                is PhoneSyncResult.Error ->
+                    _uiState.value = LoginUiState.Error(result.message)
+            }
+        }
+    }
 
     fun login(onSuccess: () -> Unit) {
         val url = serverUrl.trim()

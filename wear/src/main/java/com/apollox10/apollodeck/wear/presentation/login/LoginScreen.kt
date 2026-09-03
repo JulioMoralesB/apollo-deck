@@ -51,6 +51,28 @@ fun LoginScreen(
             )
         }
 
+        item(key = "sign_in_from_phone") {
+            Chip(
+                onClick = { viewModel.signInFromPhone(onLoginSuccess) },
+                enabled = !isLoading,
+                label = { Text(if (isLoading) "Syncing…" else "Sign In from Phone") },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        item(key = "manual_divider") {
+            Text(
+                text = "or enter manually",
+                style = MaterialTheme.typography.caption3,
+                color = MaterialTheme.colors.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+            )
+        }
+
         item(key = "server") {
             WearTextField(
                 label = "Server",
@@ -84,7 +106,7 @@ fun LoginScreen(
                 onClick = { viewModel.login(onLoginSuccess) },
                 enabled = !isLoading,
                 label = { Text(if (isLoading) "Signing in…" else "Sign In") },
-                colors = ChipDefaults.primaryChipColors(),
+                colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
             )
         }

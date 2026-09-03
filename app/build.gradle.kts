@@ -52,5 +52,6 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.play.services.wearable)
     debugImplementation(libs.androidx.ui.tooling)
 }

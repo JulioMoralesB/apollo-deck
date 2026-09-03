@@ -12,6 +12,7 @@ import com.apollox10.apollodeck.core.net.ApiClient
 import com.apollox10.apollodeck.core.store.CloudflareAccessCredentials
 import com.apollox10.apollodeck.core.store.CloudflareAccessStore
 import com.apollox10.apollodeck.core.store.ServerConfigStore
+import com.apollox10.apollodeck.wearsync.PhoneSessionPublisher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -68,6 +69,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
                 val client = ApiClient.create(context, debugLogging = BuildConfig.DEBUG)
                 AuthRepository(client).login(user, password)
+                PhoneSessionPublisher.publishCurrentSession(context)
                 _uiState.value = LoginUiState.Idle
                 onSuccess()
             } catch (e: HttpException) {
