@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Apollo Deck</string>
+    <string name="tile_action_label">Action</string>
+    <string name="tile_action_description">Run a single pinned dashboard action</string>
+    <string name="tile_multi_action_label">Actions</string>
+    <string name="tile_multi_action_description">Quick access to your dashboard\'s top actions</string>
 </resources>

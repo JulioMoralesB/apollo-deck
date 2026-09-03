@@ -7,7 +7,9 @@ plugins {
 
 android {
     namespace = "com.apollox10.apollodeck.wear"
-    compileSdk = 34
+    // 35, not 34 like the other modules — androidx.wear.tiles:tiles:1.6.0
+    // (and its transitive protolayout-material3 dependency) requires it.
+    compileSdk = 35
 
     defaultConfig {
         // Must exactly match the phone app's applicationId (com.apollox10.apollodeck)
@@ -63,6 +65,11 @@ dependencies {
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.wear.tiles)
+    implementation(libs.androidx.wear.protolayout)
+    implementation(libs.androidx.wear.protolayout.material)
     debugImplementation(libs.androidx.ui.tooling)
 }
