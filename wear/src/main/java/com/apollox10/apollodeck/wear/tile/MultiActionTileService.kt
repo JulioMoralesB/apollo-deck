@@ -61,11 +61,14 @@ private data class MultiTileAction(val serviceName: String, val action: Action)
 // executable actions across all services, in the palette's default color,
 // so the tile isn't empty out of the box.
 //
-// Tapping an icon fires it immediately (no confirm dialog, no "long-press
-// to confirm" — there's no room for either on a tile, same tradeoff the
-// widget made). Unlike ActionTileService, taps here aren't tracked/
-// reverted since there's no single result slot to show it in; the tap just
-// runs the action, fire-and-forget.
+// Tapping an icon fires it immediately, except for a confirm: true action
+// (Free Games Notifier's "Check E2E"/"Resend Notification", say) — a Tile's
+// Clickable can't tell a long-press from a tap, so those arm on the first
+// tap (rendered in a warning color) and only fire on a second tap within
+// GRID_ARM_TIMEOUT_MS; see TileGridArmState. Whichever icon last completed
+// a run flashes green/red for GRID_STATUS_HOLD_MS (TileGridActionStatus) —
+// same as ActionTileService and the phone widget, nothing here is
+// fire-and-forget.
 class MultiActionTileService : TileService() {
 
     private val serviceJob = Job()
@@ -87,25 +90,48 @@ class MultiActionTileService : TileService() {
             .toIntOrNull()
         val clicked = clickedIndex?.let { actions.getOrNull(it) }
         if (clicked != null) {
-            val endpoint = clicked.action.endpoint
-            val method = clicked.action.method
-            if (endpoint != null && method != null) {
-                sendBroadcast(
-                    Intent(applicationContext, TileActionReceiver::class.java).apply {
-                        action = TileActionReceiver.ACTION_EXECUTE
-                        putExtra(TileActionReceiver.EXTRA_ENDPOINT, endpoint)
-                        putExtra(TileActionReceiver.EXTRA_METHOD, method)
-                        putExtra(TileActionReceiver.EXTRA_TRACK_STATUS_TILE_ID, TileActionReceiver.NO_TILE_ID)
-                    },
-                )
+            val alreadyArmed = loadArmedGridAction(applicationContext) == clickedIndex
+            if (clicked.action.confirm && !alreadyArmed) {
+                // First tap on a confirm-required action — arm it and
+                // stop here, don't run it yet.
+                armGridAction(applicationContext, clickedIndex!!)
+            } else {
+                clearArmedGridAction(applicationContext)
+                val endpoint = clicked.action.endpoint
+                val method = clicked.action.method
+                if (endpoint != null && method != null) {
+                    sendBroadcast(
+                        Intent(applicationContext, TileActionReceiver::class.java).apply {
+                            action = TileActionReceiver.ACTION_EXECUTE
+                            putExtra(TileActionReceiver.EXTRA_ENDPOINT, endpoint)
+                            putExtra(TileActionReceiver.EXTRA_METHOD, method)
+                            putExtra(TileActionReceiver.EXTRA_TRACK_STATUS_TILE_ID, TileActionReceiver.NO_TILE_ID)
+                            putExtra(TileActionReceiver.EXTRA_TRACK_GRID_INDEX, clickedIndex)
+                        },
+                    )
+                }
             }
         }
 
+        val armedIndex = loadArmedGridAction(applicationContext)
+        val gridStatus = loadGridActionStatus(applicationContext)
         val accentColor = loadCachedTileGridSelection(applicationContext)?.accentColor ?: TILE_ACCENT_COLORS.first()
-        Tile.Builder()
+        val tileBuilder = Tile.Builder()
             .setResourcesVersion(resourcesVersionFor(actions))
-            .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams.deviceConfiguration, actions, accentColor)))
-            .build()
+            .setTileTimeline(
+                Timeline.fromLayoutElement(
+                    layout(requestParams.deviceConfiguration, actions, accentColor, armedIndex, gridStatus),
+                ),
+            )
+        // Same reasoning as ActionTileService's status refresh hint — a
+        // best-effort nudge so an armed icon or a just-completed result
+        // reverts to its normal color even if the user never taps the tile
+        // again before its own window (GRID_ARM_TIMEOUT_MS /
+        // GRID_STATUS_HOLD_MS) elapses.
+        if (armedIndex != null || gridStatus != null) {
+            tileBuilder.setFreshnessIntervalMillis(minOf(GRID_ARM_TIMEOUT_MS, GRID_STATUS_HOLD_MS))
+        }
+        tileBuilder.build()
     }
 
     override fun onTileResourcesRequest(requestParams: ResourcesRequest): ListenableFuture<Resources> =
@@ -160,7 +186,13 @@ class MultiActionTileService : TileService() {
     private fun MultiTileAction.matches(ref: TileGridActionRef) =
         serviceName == ref.serviceName && action.endpoint == ref.endpoint
 
-    private fun layout(deviceParams: DeviceParameters, actions: List<MultiTileAction>, accentColor: Int): LayoutElement {
+    private fun layout(
+        deviceParams: DeviceParameters,
+        actions: List<MultiTileAction>,
+        accentColor: Int,
+        armedIndex: Int?,
+        gridStatus: Pair<Int, TileActionStatus>?,
+    ): LayoutElement {
         if (actions.isEmpty()) {
             return Box.Builder()
                 .setWidth(expand())
@@ -179,6 +211,9 @@ class MultiActionTileService : TileService() {
         }
 
         val buttonColors = ButtonColors(accentColor, TileColors.onAccent)
+        val armedButtonColors = ButtonColors(TileColors.warning, TileColors.onAccent)
+        val successButtonColors = ButtonColors(TileColors.success, TileColors.onAccent)
+        val errorButtonColors = ButtonColors(TileColors.error, TileColors.onAccent)
         val grid = Column.Builder().setWidth(wrap()).setHeight(wrap()).setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
         actions.chunked(GRID_COLUMNS).forEachIndexed { rowIndex, rowItems ->
             if (rowIndex > 0) grid.addContent(Spacer.Builder().setHeight(dp(8f)).build())
@@ -187,6 +222,20 @@ class MultiActionTileService : TileService() {
             rowItems.forEachIndexed { columnIndex, item ->
                 if (columnIndex > 0) row.addContent(Spacer.Builder().setWidth(dp(8f)).build())
                 val index = rowIndex * GRID_COLUMNS + columnIndex
+                val isArmed = index == armedIndex
+                val resultStatus = gridStatus?.takeIf { it.first == index }?.second
+                val colors = when {
+                    resultStatus == TileActionStatus.Success -> successButtonColors
+                    resultStatus == TileActionStatus.Error -> errorButtonColors
+                    isArmed -> armedButtonColors
+                    else -> buttonColors
+                }
+                val description = when {
+                    resultStatus == TileActionStatus.Success -> "${item.action.label} — done"
+                    resultStatus == TileActionStatus.Error -> "${item.action.label} — failed"
+                    isArmed -> "${item.action.label} — tap again to confirm"
+                    else -> item.action.label
+                }
                 val clickable = Clickable.Builder()
                     .setId("$CLICK_ID_PREFIX$index")
                     .setOnClick(ActionBuilders.LoadAction.Builder().build())
@@ -194,9 +243,9 @@ class MultiActionTileService : TileService() {
                 row.addContent(
                     Button.Builder(this, clickable)
                         .setSize(ButtonDefaults.DEFAULT_SIZE)
-                        .setButtonColors(buttonColors)
+                        .setButtonColors(colors)
                         .setIconContent("$RES_ID_PREFIX$index", ButtonDefaults.recommendedIconSize(ButtonDefaults.DEFAULT_SIZE))
-                        .setContentDescription(item.action.label)
+                        .setContentDescription(description)
                         .build(),
                 )
             }
