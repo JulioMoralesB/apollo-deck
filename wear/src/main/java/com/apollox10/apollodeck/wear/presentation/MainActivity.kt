@@ -3,32 +3,44 @@ package com.apollox10.apollodeck.wear.presentation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.wear.compose.material.MaterialTheme
-import androidx.wear.compose.material.Text
+import com.apollox10.apollodeck.core.store.TokenStore
+import com.apollox10.apollodeck.wear.presentation.actions.ActionsScreen
+import com.apollox10.apollodeck.wear.presentation.login.LoginScreen
 
-// Scaffold placeholder. The real Wear surface is a Tile (androidx.wear.tiles),
-// not this activity — this is just the app entry point shown when launched
-// from the watch face's app list. Talks to a self-hosted
-// apollo-server-dashboard backend once implemented; see README.
+// Talks to a self-hosted apollo-server-dashboard backend. Standalone —
+// android:standalone=true in the manifest — so this never depends on a
+// paired phone: its own login, its own stored session (core's TokenStore).
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                ApolloDeckWearPlaceholder()
+                ApolloDeckWearApp()
             }
         }
     }
 }
 
 @Composable
-fun ApolloDeckWearPlaceholder() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Apollo Deck")
+fun ApolloDeckWearApp() {
+    val context = LocalContext.current
+    var loggedIn by remember { mutableStateOf(TokenStore(context).isLoggedIn()) }
+
+    if (loggedIn) {
+        ActionsScreen(
+            onLogout = {
+                TokenStore(context).clear()
+                loggedIn = false
+            },
+        )
+    } else {
+        LoginScreen(onLoginSuccess = { loggedIn = true })
     }
 }
