@@ -16,6 +16,7 @@ val BorderColor = Color(0xFF2A2D30)
 val BlueishWhite = Color(0xFFEEF0FA)
 val ErrorRed = Color(0xFFFF5C5C)
 val OnlineGreen = Color(0xFF3DDC84)
+val WarningAmber = Color(0xFFF5A623)
 
 private val ApolloDeckColorScheme = darkColorScheme(
     background = DarkGray,
