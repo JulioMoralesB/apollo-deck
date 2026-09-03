@@ -19,6 +19,26 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".widget.ActionWidgetConfigureActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widget.ActionWidgetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/action_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
