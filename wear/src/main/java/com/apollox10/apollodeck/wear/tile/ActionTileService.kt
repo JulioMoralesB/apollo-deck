@@ -311,6 +311,9 @@ internal object TileColors {
     const val onSurface = 0xFFEEF0FA.toInt()
     const val success = 0xFF3DDC84.toInt()
     const val error = 0xFFFF5C5C.toInt()
+    // Marks an armed (tap-again-to-confirm) icon in MultiActionTileService
+    // — see TileGridArmState.
+    const val warning = 0xFFFFB74D.toInt()
     // The dark content color paired with any accent background — used by
     // MultiActionTileService's grid buttons, whose background color is the
     // phone-configured accent (see TileGridSelection), not a fixed one.
