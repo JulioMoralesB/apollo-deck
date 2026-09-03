@@ -20,7 +20,7 @@ No emulator/device available in this environment — a successful `assembleDebug
 
 - `core/` — shared networking (Retrofit/OkHttp), auth (JWT access/refresh via `TokenAuthenticator`, transparent silent refresh), `EncryptedSharedPreferences` storage (`TokenStore`, `ServerConfigStore`, `CloudflareAccessStore`). `retrofit-core` is exposed as `api` (not `implementation`) so callers can catch `HttpException`.
 - `app/` — phone app: login, dashboard (`ui/dashboard/`), settings, home-screen widget (`widget/`). Configure UI is Compose (`WidgetSetupScreen.kt`); the widget itself renders via plain `RemoteViews`/`AppWidgetProvider` built directly in `WidgetRemoteViews.kt`, not Jetpack Glance — Glance's session/recomposition layer was found unreliable for background-triggered updates (tap feedback, WorkManager-driven revert) on-device, so it was dropped in favor of pushing `RemoteViews` straight to `AppWidgetManager`.
-- `wear/` — Wear OS app, currently a placeholder. Planned: standalone login (independent of phone — `standalone=true` in its manifest), single + multi-action tiles.
+- `wear/` — Wear OS app (`standalone=true`, no phone pairing required). Has its own login (`presentation/login/`, reuses core's `AuthRepository`/`ApiClient`) and an actions list (`presentation/actions/`) that fetches `/services` and executes actions — no `TextField` in Wear Compose Material, so input fields are hand-rolled from `BasicTextField`; `confirm: true` actions require a long-press instead of a dialog. No icons yet — `IconMapping` lives in `app/` (Compose Material Icons, not in `core`), and tiles (`androidx.wear.tiles`) aren't started.
 
 ## Key Conventions
 
