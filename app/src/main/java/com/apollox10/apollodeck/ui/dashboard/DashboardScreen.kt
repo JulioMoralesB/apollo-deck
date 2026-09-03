@@ -3,6 +3,8 @@ package com.apollox10.apollodeck.ui.dashboard
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,7 +50,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -56,7 +60,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.model.Service
-import com.apollox10.apollodeck.ui.icons.iconFor
+import com.apollox10.apollodeck.ui.icons.IconOverrideScreen
+import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.settings.SettingsScreen
 import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
@@ -78,17 +83,20 @@ fun DashboardScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val actionResult by viewModel.actionResult.collectAsState()
+    val actionStates by viewModel.actionStates.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedServiceName by remember { mutableStateOf<String?>(null) }
     var pendingAction by remember { mutableStateOf<Action?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showTileGridConfig by remember { mutableStateOf(false) }
+    var showIconOverrides by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig) {
+    BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig || showIconOverrides) {
         when {
             selectedServiceName != null -> selectedServiceName = null
             showTileGridConfig -> showTileGridConfig = false
+            showIconOverrides -> showIconOverrides = false
             else -> showSettings = false
         }
     }
@@ -158,6 +166,13 @@ fun DashboardScreen(
                                     tint = MaterialTheme.colorScheme.onBackground,
                                 )
                             }
+                            showIconOverrides -> IconButton(onClick = { showIconOverrides = false }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
                             showSettings -> IconButton(onClick = { showSettings = false }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
@@ -178,6 +193,7 @@ fun DashboardScreen(
                         when {
                             selectedService != null -> selectedService.name
                             showTileGridConfig -> "Watch Tile"
+                            showIconOverrides -> "Icon Overrides"
                             showSettings -> "Settings"
                             else -> "Apollo Deck"
                         },
@@ -193,8 +209,14 @@ fun DashboardScreen(
 
             if (showTileGridConfig) {
                 TileGridConfigScreen(onSaved = { showTileGridConfig = false })
+            } else if (showIconOverrides) {
+                IconOverrideScreen()
             } else if (showSettings) {
-                SettingsScreen(onSaved = onLogout, onConfigureWatchTile = { showTileGridConfig = true })
+                SettingsScreen(
+                    onSaved = onLogout,
+                    onConfigureWatchTile = { showTileGridConfig = true },
+                    onIconOverrides = { showIconOverrides = true },
+                )
             } else when (val state = uiState) {
                 is DashboardUiState.Loading -> Box(
                     modifier = Modifier.fillMaxSize(),
@@ -211,7 +233,7 @@ fun DashboardScreen(
                 }
 
                 is DashboardUiState.Loaded -> if (selectedService != null) {
-                    ActionGrid(service = selectedService, onActionTap = ::handleActionTap)
+                    ActionGrid(service = selectedService, actionStates = actionStates, onActionTap = ::handleActionTap)
                 } else {
                     PullToRefreshBox(
                         isRefreshing = isRefreshing,
@@ -272,7 +294,7 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun ActionGrid(service: Service, onActionTap: (Action) -> Unit) {
+private fun ActionGrid(service: Service, actionStates: Map<String, ActionCardState>, onActionTap: (Action) -> Unit) {
     val actions = service.actions.orEmpty()
     if (actions.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -289,7 +311,11 @@ private fun ActionGrid(service: Service, onActionTap: (Action) -> Unit) {
         modifier = Modifier.fillMaxSize(),
     ) {
         items(actions) { action ->
-            ActionButton(action = action, onClick = { onActionTap(action) })
+            ActionButton(
+                action = action,
+                state = action.endpoint?.let { actionStates[it] },
+                onClick = { onActionTap(action) },
+            )
         }
     }
 }
@@ -297,6 +323,7 @@ private fun ActionGrid(service: Service, onActionTap: (Action) -> Unit) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ServiceCard(service: Service, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val context = LocalContext.current
     val hasActions = !service.actions.isNullOrEmpty()
     val isClickable = hasActions || service.url != null
     val statusColor = statusColorFor(service.status)
@@ -315,7 +342,7 @@ private fun ServiceCard(service: Service, onClick: () -> Unit, onLongClick: () -
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Icon(
-            imageVector = iconFor(service.icon),
+            imageVector = resolvedIconFor(context, service.icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(22.dp),
@@ -378,21 +405,50 @@ private fun statusLabelFor(status: String) = when (status) {
     else -> "Unknown"
 }
 
+// Mirrors the web dashboard's action-card success/error flash exactly:
+// a 150ms crossfade into a tinted border + background on result, held for
+// ACTION_STATE_HOLD_MS (see DashboardViewModel), then a 150ms fade back —
+// same colors, same timing (ActionPanel.jsx / ActionPanel.css).
+private const val STATE_TRANSITION_MS = 150
+
 @Composable
-private fun ActionButton(action: Action, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ActionButton(action: Action, state: ActionCardState?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val transitionSpec = tween<Color>(STATE_TRANSITION_MS)
+    val borderColor by animateColorAsState(
+        targetValue = when (state) {
+            ActionCardState.Success -> OnlineGreen
+            ActionCardState.Error -> ErrorRed
+            else -> BorderColor
+        },
+        animationSpec = transitionSpec,
+        label = "actionBorderColor",
+    )
+    val tintColor by animateColorAsState(
+        targetValue = when (state) {
+            ActionCardState.Success -> OnlineGreen.copy(alpha = 0.08f)
+            ActionCardState.Error -> ErrorRed.copy(alpha = 0.08f)
+            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0f)
+        },
+        animationSpec = transitionSpec,
+        label = "actionTintColor",
+    )
+
     Column(
         modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .background(tintColor)
+            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+            .alpha(if (state == ActionCardState.Loading) 0.5f else 1f)
+            .clickable(enabled = state != ActionCardState.Loading, onClick = onClick)
             .padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = iconFor(action.icon),
+            imageVector = resolvedIconFor(context, action.icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(24.dp),

@@ -27,9 +27,10 @@ import androidx.wear.tiles.RequestBuilders.TileRequest
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import com.apollox10.apollodeck.core.model.Action
+import com.apollox10.apollodeck.core.store.IconOverrideStore
 import com.apollox10.apollodeck.core.sync.TileGridActionRef
 import com.apollox10.apollodeck.core.tile.TILE_ACCENT_COLORS
-import com.apollox10.apollodeck.wear.icons.iconFor
+import com.apollox10.apollodeck.wear.icons.resolvedIconFor
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -112,18 +113,25 @@ class MultiActionTileService : TileService() {
             val actions = lastResolvedActions ?: resolveDisplayedActionsFast()
             val builder = Resources.Builder().setVersion(resourcesVersionFor(actions))
             actions.forEachIndexed { index, item ->
-                builder.addIdToImageMapping("$RES_ID_PREFIX$index", iconFor(item.action.icon).toInlineImageResource(ICON_SIZE_PX))
+                builder.addIdToImageMapping(
+                    "$RES_ID_PREFIX$index",
+                    resolvedIconFor(applicationContext, item.action.icon).toInlineImageResource(ICON_SIZE_PX),
+                )
             }
             builder.build()
         }
 
     // See ActionTileService's identical helper: the renderer only refetches
     // resources when this string changes, and the icon set here is fully
-    // dynamic (phone-configured selection, or the live top-N fallback), so
-    // a hardcoded constant would risk serving stale icon bitmaps after the
-    // selection changes.
-    private fun resourcesVersionFor(actions: List<MultiTileAction>): String =
-        actions.joinToString(",") { "${it.serviceName}#${it.action.icon}" }.hashCode().toString()
+    // dynamic (phone-configured selection, the live top-N fallback, and any
+    // icon override — see IconOverrideStore), so a hardcoded constant would
+    // risk serving stale icon bitmaps after any of those change.
+    private fun resourcesVersionFor(actions: List<MultiTileAction>): String {
+        val overrides = IconOverrideStore(applicationContext)
+        return actions.joinToString(",") { "${it.serviceName}#${it.action.icon}#${overrides.getOverride(it.action.icon) ?: "-"}" }
+            .hashCode()
+            .toString()
+    }
 
     override fun onDestroy() {
         super.onDestroy()

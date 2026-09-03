@@ -30,7 +30,9 @@ import androidx.wear.tiles.RequestBuilders.ResourcesRequest
 import androidx.wear.tiles.RequestBuilders.TileRequest
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
+import com.apollox10.apollodeck.core.store.IconOverrideStore
 import com.apollox10.apollodeck.wear.icons.iconFor
+import com.apollox10.apollodeck.wear.icons.resolvedIconFor
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +41,11 @@ import kotlinx.coroutines.guava.future
 
 private const val CLICK_ID_EXECUTE = "execute"
 private const val CLICK_ID_CONFIGURE = "configure"
+// The platform is free to coarsen this (typically to a floor around a
+// minute) — it's a hint, not a guarantee, which is why the age-based
+// backstop in loadTileActionStatus is the thing actually responsible for
+// this tile never getting stuck on a stale result.
+private const val STATUS_REFRESH_INTERVAL_MS = 15_000L
 private const val RES_ID_ACTION_ICON = "action_icon"
 private const val RES_ID_CONFIGURE_ICON = "configure_icon"
 private const val ICON_SIZE_PX = 72
@@ -80,10 +87,19 @@ class ActionTileService : TileService() {
         }
 
         val status = loadTileActionStatus(applicationContext, tileId)
-        Tile.Builder()
+        val tileBuilder = Tile.Builder()
             .setResourcesVersion(resourcesVersionFor(config))
             .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams.deviceConfiguration, config, status, tileId)))
-            .build()
+        // Only while showing a transient result — nudges the system to ask
+        // for this tile again around when loadTileActionStatus's own
+        // staleness backstop would revert it, so a tile sitting unattended
+        // on the carousel doesn't need to wait for a manual glance to self-
+        // heal. Not set at all otherwise: an idle tile has no need for
+        // (battery-costing) periodic refresh.
+        if (status != null) {
+            tileBuilder.setFreshnessIntervalMillis(STATUS_REFRESH_INTERVAL_MS)
+        }
+        tileBuilder.build()
     }
 
     override fun onTileResourcesRequest(requestParams: ResourcesRequest): ListenableFuture<Resources> =
@@ -93,7 +109,10 @@ class ActionTileService : TileService() {
                 .setVersion(resourcesVersionFor(config))
                 .addIdToImageMapping(RES_ID_CONFIGURE_ICON, iconFor("settings").toInlineImageResource(ICON_SIZE_PX))
             if (config != null) {
-                builder.addIdToImageMapping(RES_ID_ACTION_ICON, iconFor(config.iconName).toInlineImageResource(ICON_SIZE_PX))
+                builder.addIdToImageMapping(
+                    RES_ID_ACTION_ICON,
+                    resolvedIconFor(applicationContext, config.iconName).toInlineImageResource(ICON_SIZE_PX),
+                )
             }
             builder.build()
         }
@@ -104,9 +123,16 @@ class ActionTileService : TileService() {
     // a different action with a different icon (or across the
     // unconfigured-to-configured transition, when the resource id set
     // itself changes). Deriving it from the config's icon keeps it in sync
-    // without needing to bump a hardcoded version by hand.
+    // without needing to bump a hardcoded version by hand — and since
+    // resolvedIconFor can render something other than iconName's own
+    // mapping when an override exists (see IconOverrideStore), the override
+    // (if any) has to be part of this string too, or changing/clearing one
+    // wouldn't force a re-render of an already-configured tile.
     private fun resourcesVersionFor(config: TileActionConfig?): String =
-        config?.let { "action:${it.iconName}" } ?: "unconfigured"
+        config?.let {
+            val overrideId = IconOverrideStore(applicationContext).getOverride(it.iconName)
+            "action:${it.iconName}:${overrideId ?: "-"}"
+        } ?: "unconfigured"
 
     override fun onDestroy() {
         super.onDestroy()

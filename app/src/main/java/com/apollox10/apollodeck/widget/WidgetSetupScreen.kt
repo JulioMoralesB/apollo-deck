@@ -36,12 +36,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.ui.icons.availableIcons
-import com.apollox10.apollodeck.ui.icons.iconFor
+import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.icons.widgetIconFor
 import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
@@ -226,6 +227,7 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun ActionRow(action: Action, isSelected: Boolean, onClick: () -> Unit) {
+    val context = LocalContext.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -241,7 +243,7 @@ private fun ActionRow(action: Action, isSelected: Boolean, onClick: () -> Unit) 
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Icon(
-            imageVector = iconFor(action.icon),
+            imageVector = resolvedIconFor(context, action.icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(20.dp),

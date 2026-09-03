@@ -34,8 +34,17 @@ data class TileActionConfig(
 enum class TileActionStatus { Success, Error }
 
 private const val PREFS_NAME = "apollo_deck_tiles"
+// A backstop, not the primary path back to idle — RevertTileStatusWorker's
+// 3s-delayed WorkManager job normally handles that. Confirmed on real
+// hardware that a delayed WorkManager job can be deferred well past its
+// delay (and, in one observed case, seemingly indefinitely) by Wear OS's
+// battery/Doze restrictions, leaving the tile stuck showing a result long
+// after it's stopped being relevant. Comfortably longer than the primary
+// revert's delay so it normally never fires first.
+private const val STATUS_MAX_AGE_MS = 8_000L
 private fun configKey(tileId: Int) = "action_config_$tileId"
 private fun statusKey(tileId: Int) = "action_status_$tileId"
+private fun statusAtKey(tileId: Int) = "action_status_at_$tileId"
 
 fun saveTileActionConfig(context: Context, tileId: Int, config: TileActionConfig) {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -58,14 +67,27 @@ fun setTileActionStatus(context: Context, tileId: Int, status: TileActionStatus?
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .apply {
-            if (status == null) remove(statusKey(tileId)) else putString(statusKey(tileId), status.name)
+            if (status == null) {
+                remove(statusKey(tileId))
+                remove(statusAtKey(tileId))
+            } else {
+                putString(statusKey(tileId), status.name)
+                putLong(statusAtKey(tileId), System.currentTimeMillis())
+            }
         }
         .apply()
 }
 
 fun loadTileActionStatus(context: Context, tileId: Int): TileActionStatus? {
-    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .getString(statusKey(tileId), null) ?: return null
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val raw = prefs.getString(statusKey(tileId), null) ?: return null
+
+    val setAt = prefs.getLong(statusAtKey(tileId), 0L)
+    if (System.currentTimeMillis() - setAt > STATUS_MAX_AGE_MS) {
+        setTileActionStatus(context, tileId, null)
+        return null
+    }
+
     return try {
         TileActionStatus.valueOf(raw)
     } catch (e: Exception) {

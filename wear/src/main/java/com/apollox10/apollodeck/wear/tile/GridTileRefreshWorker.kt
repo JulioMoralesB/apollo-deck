@@ -8,6 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.apollox10.apollodeck.core.net.ApiClient
+import com.apollox10.apollodeck.core.store.IconOverrideStore
 import com.apollox10.apollodeck.wear.BuildConfig
 
 private const val UNIQUE_WORK_NAME = "grid_tile_refresh"
@@ -45,13 +46,24 @@ class GridTileRefreshWorker(context: Context, params: WorkerParameters) : Corout
             // Keep whatever's already cached — see TileActionsCache.
         }
 
-        // A catch-up pull, not the primary path — TileGridDataListenerService
-        // pushes a new selection to the cache immediately when the phone
-        // saves one. This only matters for a selection published before
-        // this ever ran (or a missed push).
+        // Catch-up pulls, not the primary path for either — both
+        // TileGridDataListenerService and IconOverrideDataListenerService
+        // push their respective updates to the cache immediately when the
+        // phone saves them. This only matters for a change published
+        // before this ever ran (or a missed push).
         pullTileGridSelection(applicationContext)?.let { cacheTileGridSelection(applicationContext, it) }
+        val overridesChanged = pullIconOverrides(applicationContext)?.let {
+            IconOverrideStore(applicationContext).replaceAll(it)
+            true
+        } ?: false
 
         TileService.getUpdater(applicationContext).requestUpdate(MultiActionTileService::class.java)
+        // Icon overrides are global, so a catch-up here can also affect the
+        // single-action tile even though this worker is otherwise scoped to
+        // the grid tile's own refresh cycle.
+        if (overridesChanged) {
+            TileService.getUpdater(applicationContext).requestUpdate(ActionTileService::class.java)
+        }
         return Result.success()
     }
 }
