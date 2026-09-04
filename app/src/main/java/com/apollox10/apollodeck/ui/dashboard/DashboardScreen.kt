@@ -54,12 +54,16 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
+import com.apollox10.apollodeck.core.model.CaduTrackSummary
+import com.apollox10.apollodeck.core.model.FreeGamesSummary
 import com.apollox10.apollodeck.core.model.Service
+import com.apollox10.apollodeck.core.model.ServiceSummary
 import com.apollox10.apollodeck.ui.icons.IconOverrideScreen
 import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.settings.SettingsScreen
@@ -67,7 +71,12 @@ import com.apollox10.apollodeck.ui.theme.BorderColor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
 import com.apollox10.apollodeck.ui.theme.OnlineGreen
+import com.apollox10.apollodeck.ui.theme.WarningAmber
 import com.apollox10.apollodeck.wearsync.TileGridConfigScreen
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 // Cards size themselves to fit this, rather than a fixed column count — the
 // same grid reflows on rotation instead of keeping a portrait column count
@@ -84,6 +93,7 @@ fun DashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val actionResult by viewModel.actionResult.collectAsState()
     val actionStates by viewModel.actionStates.collectAsState()
+    val summaries by viewModel.summaries.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedServiceName by remember { mutableStateOf<String?>(null) }
@@ -233,7 +243,15 @@ fun DashboardScreen(
                 }
 
                 is DashboardUiState.Loaded -> if (selectedService != null) {
-                    ActionGrid(service = selectedService, actionStates = actionStates, onActionTap = ::handleActionTap)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        summaries[selectedService.name]?.let { SummarySection(it) }
+                        ActionGrid(
+                            service = selectedService,
+                            actionStates = actionStates,
+                            onActionTap = ::handleActionTap,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 } else {
                     PullToRefreshBox(
                         isRefreshing = isRefreshing,
@@ -251,7 +269,11 @@ fun DashboardScreen(
                                 ServiceCard(
                                     service = service,
                                     onClick = {
-                                        if (!service.actions.isNullOrEmpty()) {
+                                        // A summary-only service (no actions) still needs
+                                        // to open the panel — that's the only place its
+                                        // summary renders — so it takes the same priority
+                                        // as having actions, ahead of just opening a url.
+                                        if (!service.actions.isNullOrEmpty() || service.summaryEndpoint != null) {
                                             selectedServiceName = service.name
                                         } else if (service.url != null) {
                                             context.startActivity(
@@ -294,10 +316,15 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun ActionGrid(service: Service, actionStates: Map<String, ActionCardState>, onActionTap: (Action) -> Unit) {
+private fun ActionGrid(
+    service: Service,
+    actionStates: Map<String, ActionCardState>,
+    onActionTap: (Action) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val actions = service.actions.orEmpty()
     if (actions.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No actions configured.", style = MonospaceTextStyle, color = MaterialTheme.colorScheme.onBackground)
         }
         return
@@ -308,7 +335,7 @@ private fun ActionGrid(service: Service, actionStates: Map<String, ActionCardSta
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
     ) {
         items(actions) { action ->
             ActionButton(
@@ -325,7 +352,8 @@ private fun ActionGrid(service: Service, actionStates: Map<String, ActionCardSta
 private fun ServiceCard(service: Service, onClick: () -> Unit, onLongClick: () -> Unit) {
     val context = LocalContext.current
     val hasActions = !service.actions.isNullOrEmpty()
-    val isClickable = hasActions || service.url != null
+    val opensPanel = hasActions || service.summaryEndpoint != null
+    val isClickable = opensPanel || service.url != null
     val statusColor = statusColorFor(service.status)
 
     Column(
@@ -382,6 +410,12 @@ private fun ServiceCard(service: Service, onClick: () -> Unit, onLongClick: () -
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
+            service.summaryEndpoint != null -> Text(
+                "Summary",
+                style = MonospaceTextStyle,
+                fontSize = 8.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             service.url != null -> Text(
                 "Open UI",
                 style = MonospaceTextStyle,
@@ -462,5 +496,144 @@ private fun ActionButton(action: Action, state: ActionCardState?, modifier: Modi
             maxLines = 2,
             modifier = Modifier.padding(top = 6.dp),
         )
+    }
+}
+
+// Mirrors the web dashboard's SummaryPanel.jsx, embedded above the action
+// grid in a service's own panel — dispatches on shape rather than on
+// service name, same reasoning as the web version. An unrecognized shape
+// renders nothing rather than an empty card.
+@Composable
+private fun SummarySection(summary: ServiceSummary) {
+    if (summary is ServiceSummary.Unknown) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(14.dp),
+    ) {
+        when (summary) {
+            is ServiceSummary.FreeGames -> FreeGamesSummaryContent(summary.data)
+            is ServiceSummary.CaduTrack -> CaduTrackSummaryContent(summary.data)
+            is ServiceSummary.Error -> Text(summary.message, style = MonospaceTextStyle, fontSize = 11.sp, color = ErrorRed)
+            ServiceSummary.Unknown -> Unit
+        }
+    }
+}
+
+@Composable
+private fun FreeGamesSummaryContent(data: FreeGamesSummary) {
+    if (data.activePromotions.isEmpty()) {
+        Text(
+            "No active promotions",
+            style = MonospaceTextStyle,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        data.activePromotions.forEach { promo ->
+            val eta = formatEta(promo.endDate)
+            Column {
+                Text(promo.title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    promo.store + (eta?.let { " · ends in $it" } ?: ""),
+                    style = MonospaceTextStyle,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CaduTrackSummaryContent(data: CaduTrackSummary) {
+    Column {
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            SummaryStat("Expired", data.expired, if (data.expired > 0) ErrorRed else null)
+            SummaryStat("Expiring soon", data.expiringSoon, if (data.expiringSoon > 0) WarningAmber else null)
+        }
+        if (data.next.isEmpty()) {
+            Text(
+                "Nothing tracked",
+                style = MonospaceTextStyle,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        } else {
+            Text(
+                "Next",
+                style = MonospaceTextStyle,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                data.next.forEach { item ->
+                    val eta = formatEta(item.expiresAt)
+                    Column {
+                        Text(item.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        eta?.let {
+                            Text(
+                                it,
+                                style = MonospaceTextStyle,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryStat(label: String, value: Int, highlightColor: Color?) {
+    Column {
+        Text(
+            "$value",
+            style = MonospaceTextStyle,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = highlightColor ?: MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            label,
+            style = MonospaceTextStyle,
+            fontSize = 9.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+        )
+    }
+}
+
+// Compares by local calendar day rather than raw elapsed hours — same fix
+// as the web dashboard's formatEta (SummaryPanel.jsx): a date one calendar
+// day out should read as "1 day" regardless of the viewer's UTC offset.
+// Handles both a bare "YYYY-MM-DD" (CaduTrack's expires_at) and a full
+// ISO-8601 instant (Free Games Notifier's end_date).
+private fun formatEta(iso: String?): String? {
+    if (iso.isNullOrBlank()) return null
+    val targetDate = try {
+        if (iso.length == 10) {
+            LocalDate.parse(iso)
+        } else {
+            Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate()
+        }
+    } catch (e: Exception) {
+        return null
+    }
+    val diffDays = ChronoUnit.DAYS.between(LocalDate.now(), targetDate)
+    return when {
+        diffDays < 0 -> "expired"
+        diffDays == 0L -> "today"
+        diffDays == 1L -> "1 day"
+        else -> "$diffDays days"
     }
 }

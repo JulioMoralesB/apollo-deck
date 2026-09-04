@@ -52,6 +52,7 @@ data class Service(
     val icon: String? = null,
     val url: String? = null,
     val actions: List<Action>? = null,
+    @SerialName("summary_endpoint") val summaryEndpoint: String? = null,
 )
 
 @Serializable

@@ -64,4 +64,26 @@ class ActionExecutor(
             }
         }
     }
+
+    // GET a service's own summary_endpoint and return the raw JSON body —
+    // unlike execute(), the response isn't an ActionResult, it's whatever
+    // shape that particular service's own summary contract defines (see
+    // ServiceSummary/parseServiceSummary), so parsing is left to the caller.
+    suspend fun fetchSummary(endpoint: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val url = baseUrl.toHttpUrl().resolve(endpoint)
+                ?: return@withContext Result.failure(IllegalArgumentException("Invalid summary endpoint: $endpoint"))
+            val request = Request.Builder().url(url).get().build()
+            authenticatedClient.newCall(request).execute().use { response ->
+                val raw = response.body?.string()
+                if (response.isSuccessful && !raw.isNullOrBlank()) {
+                    Result.success(raw)
+                } else {
+                    Result.failure(Exception(raw?.takeIf { it.isNotBlank() } ?: "HTTP ${response.code}"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
