@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plain RemoteViews layout for the combined summary widget — one row per
+     service with a summary_endpoint, label left / value right on the same
+     line (matches the mockup). Fixed set of up to
+     CombinedSummaryWidgetRemoteViews.MAX_ROWS rows, GONE/VISIBLE per row —
+     same reasoning as widget_summary.xml. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/combined_summary_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_default">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView
+            android:id="@+id/combined_summary_widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="This week"
+            android:fontFamily="monospace"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:alpha="0.5"
+            android:layout_marginBottom="10dp" />
+
+        <LinearLayout
+            android:id="@+id/combined_summary_widget_row1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row1_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:alpha="0.6"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row1_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="12sp"
+                android:gravity="end"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/combined_summary_widget_row2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row2_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:alpha="0.6"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row2_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="12sp"
+                android:gravity="end"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/combined_summary_widget_row3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row3_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:alpha="0.6"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row3_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="12sp"
+                android:gravity="end"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/combined_summary_widget_row4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row4_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:alpha="0.6"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/combined_summary_widget_row4_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="12sp"
+                android:gravity="end"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/combined_summary_widget_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No summaries configured"
+            android:fontFamily="monospace"
+            android:textSize="11sp"
+            android:alpha="0.4"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</FrameLayout>
