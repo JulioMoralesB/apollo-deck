@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.apollox10.apollodeck.BuildConfig
 import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.model.Service
+import com.apollox10.apollodeck.core.model.ServiceSummary
+import com.apollox10.apollodeck.core.model.parseServiceSummary
 import com.apollox10.apollodeck.core.net.ApiClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,6 +49,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _actionStates = MutableStateFlow<Map<String, ActionCardState>>(emptyMap())
     val actionStates: StateFlow<Map<String, ActionCardState>> = _actionStates
 
+    // Keyed by service name, mirrors the web dashboard's summaries state —
+    // fetched alongside every /services poll for any service that has a
+    // summaryEndpoint, so it's already there by the time a panel opens.
+    private val _summaries = MutableStateFlow<Map<String, ServiceSummary>>(emptyMap())
+    val summaries: StateFlow<Map<String, ServiceSummary>> = _summaries
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
 
@@ -80,6 +88,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         try {
             val services = client.authenticatedApi.getServices()
             _uiState.value = DashboardUiState.Loaded(services)
+            services.forEach { service ->
+                service.summaryEndpoint?.let { endpoint ->
+                    viewModelScope.launch { fetchSummary(service.name, endpoint) }
+                }
+            }
         } catch (e: HttpException) {
             if (e.code() == 401 || e.code() == 403) {
                 onSessionExpired()
@@ -89,6 +102,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         } catch (e: IOException) {
             _uiState.value = DashboardUiState.Error("Could not reach the server")
         }
+    }
+
+    private suspend fun fetchSummary(serviceName: String, endpoint: String) {
+        val result = client.actionExecutor.fetchSummary(endpoint)
+        val summary = result.fold(
+            onSuccess = { raw -> parseServiceSummary(raw) },
+            onFailure = { e -> ServiceSummary.Error(e.message ?: "Failed to load summary") },
+        )
+        _summaries.value = _summaries.value + (serviceName to summary)
     }
 
     fun executeAction(action: Action) {
