@@ -64,6 +64,7 @@ import com.apollox10.apollodeck.core.model.CaduTrackSummary
 import com.apollox10.apollodeck.core.model.FreeGamesSummary
 import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.core.model.ServiceSummary
+import com.apollox10.apollodeck.core.model.formatEta
 import com.apollox10.apollodeck.ui.icons.IconOverrideScreen
 import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.settings.SettingsScreen
@@ -73,10 +74,6 @@ import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
 import com.apollox10.apollodeck.ui.theme.OnlineGreen
 import com.apollox10.apollodeck.ui.theme.WarningAmber
 import com.apollox10.apollodeck.wearsync.TileGridConfigScreen
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 // Cards size themselves to fit this, rather than a fixed column count — the
 // same grid reflows on rotation instead of keeping a portrait column count
@@ -88,6 +85,7 @@ private val CARD_MIN_SIZE = 110.dp
 fun DashboardScreen(
     onLogout: () -> Unit,
     viewModel: DashboardViewModel = viewModel(),
+    initialServiceName: String? = null,
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -101,6 +99,14 @@ fun DashboardScreen(
     var showSettings by remember { mutableStateOf(false) }
     var showTileGridConfig by remember { mutableStateOf(false) }
     var showIconOverrides by remember { mutableStateOf(false) }
+
+    // Re-runs whenever a summary widget row's tap delivers a new service
+    // name (see MainActivity's onNewIntent — the activity is singleTop, so
+    // a tap while the app's already running lands here as a prop change,
+    // not a fresh composition), not just on first launch.
+    LaunchedEffect(initialServiceName) {
+        if (initialServiceName != null) selectedServiceName = initialServiceName
+    }
 
     BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig || showIconOverrides) {
         when {
@@ -610,30 +616,5 @@ private fun SummaryStat(label: String, value: Int, highlightColor: Color?) {
             fontSize = 9.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
         )
-    }
-}
-
-// Compares by local calendar day rather than raw elapsed hours — same fix
-// as the web dashboard's formatEta (SummaryPanel.jsx): a date one calendar
-// day out should read as "1 day" regardless of the viewer's UTC offset.
-// Handles both a bare "YYYY-MM-DD" (CaduTrack's expires_at) and a full
-// ISO-8601 instant (Free Games Notifier's end_date).
-private fun formatEta(iso: String?): String? {
-    if (iso.isNullOrBlank()) return null
-    val targetDate = try {
-        if (iso.length == 10) {
-            LocalDate.parse(iso)
-        } else {
-            Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate()
-        }
-    } catch (e: Exception) {
-        return null
-    }
-    val diffDays = ChronoUnit.DAYS.between(LocalDate.now(), targetDate)
-    return when {
-        diffDays < 0 -> "expired"
-        diffDays == 0L -> "today"
-        diffDays == 1L -> "1 day"
-        else -> "$diffDays days"
     }
 }

@@ -1,5 +1,6 @@
 package com.apollox10.apollodeck
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,21 +20,38 @@ import com.apollox10.apollodeck.ui.login.LoginScreen
 import com.apollox10.apollodeck.ui.theme.ApolloDeckTheme
 import com.apollox10.apollodeck.wearsync.PhoneSessionPublisher
 
+// Set by a summary widget row's tap target (see widget/SummaryWidgetRemoteViews.kt
+// and widget/CombinedSummaryWidgetRemoteViews.kt) to deep-link straight into
+// that service's own panel instead of just opening the dashboard's home grid.
+const val EXTRA_OPEN_SERVICE_NAME = "com.apollox10.apollodeck.EXTRA_OPEN_SERVICE_NAME"
+
 class MainActivity : ComponentActivity() {
+
+    private var openServiceName by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openServiceName = intent?.getStringExtra(EXTRA_OPEN_SERVICE_NAME)
         setContent {
             ApolloDeckTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ApolloDeckApp()
+                    ApolloDeckApp(initialServiceName = openServiceName)
                 }
             }
         }
     }
+
+    // MainActivity is launchMode="singleTop" — a widget tap while the app is
+    // already running (foreground or backgrounded) reuses this instance and
+    // arrives here instead of a fresh onCreate.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(EXTRA_OPEN_SERVICE_NAME)?.let { openServiceName = it }
+    }
 }
 
 @Composable
-fun ApolloDeckApp() {
+fun ApolloDeckApp(initialServiceName: String? = null) {
     val context = LocalContext.current
     var loggedIn by remember { mutableStateOf(TokenStore(context).isLoggedIn()) }
 
@@ -52,6 +70,7 @@ fun ApolloDeckApp() {
                 PhoneSessionPublisher.clear(context)
                 loggedIn = false
             },
+            initialServiceName = initialServiceName,
         )
     } else {
         LoginScreen(onLoginSuccess = { loggedIn = true })

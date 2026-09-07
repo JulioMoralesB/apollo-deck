@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Apollo Deck</string>
+    <!-- Distinct per-widget labels for the system widget picker — without
+         these, all three Apollo Deck widgets show up as identical
+         "Apollo Deck" entries there, distinguishable only by their size
+         preview. -->
+    <string name="widget_action_label">Apollo Deck: Action</string>
+    <string name="widget_summary_label">Apollo Deck: Summary</string>
+    <string name="widget_combined_summary_label">Apollo Deck: Combined Summary</string>
 </resources>
