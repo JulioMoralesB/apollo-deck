@@ -11,6 +11,7 @@ data class FreeGamesPromotion(
     val title: String,
     val store: String,
     @SerialName("end_date") val endDate: String? = null,
+    val link: String? = null,
 )
 
 @Serializable

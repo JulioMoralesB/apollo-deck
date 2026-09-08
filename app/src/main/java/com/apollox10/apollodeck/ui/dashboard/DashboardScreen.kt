@@ -532,6 +532,7 @@ private fun SummarySection(summary: ServiceSummary) {
 
 @Composable
 private fun FreeGamesSummaryContent(data: FreeGamesSummary) {
+    val context = LocalContext.current
     if (data.activePromotions.isEmpty()) {
         Text(
             "No active promotions",
@@ -544,7 +545,14 @@ private fun FreeGamesSummaryContent(data: FreeGamesSummary) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         data.activePromotions.forEach { promo ->
             val eta = formatEta(promo.endDate)
-            Column {
+            val link = promo.link
+            Column(
+                modifier = if (link != null) {
+                    Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link))) }
+                } else {
+                    Modifier
+                },
+            ) {
                 Text(promo.title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     promo.store + (eta?.let { " · ends in $it" } ?: ""),
