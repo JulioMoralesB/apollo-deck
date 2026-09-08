@@ -18,11 +18,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -79,6 +82,14 @@ import com.apollox10.apollodeck.wearsync.TileGridConfigScreen
 // same grid reflows on rotation instead of keeping a portrait column count
 // in landscape.
 private val CARD_MIN_SIZE = 110.dp
+
+// Caps how tall the summary section can grow before scrolling internally —
+// without this, a service with many items (e.g. several active promotions,
+// or several products expiring the same day) would push ActionGrid below
+// it off-screen with no way to reach it, since the outer Column here isn't
+// itself scrollable (ActionGrid's LazyVerticalGrid needs bounded height via
+// weight(1f), which a scrollable parent Column can't give it).
+private val SUMMARY_SECTION_MAX_HEIGHT = 220.dp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -519,6 +530,8 @@ private fun SummarySection(summary: ServiceSummary) {
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
+            .heightIn(max = SUMMARY_SECTION_MAX_HEIGHT)
+            .verticalScroll(rememberScrollState())
             .padding(14.dp),
     ) {
         when (summary) {
