@@ -18,14 +18,37 @@ data class SummaryItem(val name: String, val emphasis: LineEmphasis)
 private fun caduTrackItemsExpired(data: CaduTrackSummary): Boolean =
     data.expiredProducts.isNotEmpty()
 
+// A single word like "Expired" would misrepresent whichever items came from
+// the other bucket once both are shown together — so when both are
+// non-empty, this names both counts instead, each colored by its own
+// bucket (matches the per-item coloring in the list below it).
+private fun caduTrackMixedLabel(data: CaduTrackSummary, colorFor: (LineEmphasis) -> Int): CharSequence {
+    val sb = SpannableStringBuilder()
+    var start = sb.length
+    sb.append("${data.expiredProducts.size} expired")
+    sb.setSpan(ForegroundColorSpan(colorFor(LineEmphasis.Danger)), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    sb.append(" · ")
+    start = sb.length
+    sb.append("${data.next.size} soon")
+    sb.setSpan(ForegroundColorSpan(colorFor(LineEmphasis.Warning)), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    return sb
+}
+
 // Both summary widgets show a list of item names (game titles, or CaduTrack's
 // soonest-expiring items) rather than per-item metadata — tapping the widget
 // opens the full panel for that detail. Same shape-dispatch reasoning as
 // SummaryPanel.jsx/SummarySection in DashboardScreen.kt: unrecognized shapes/
 // errors still produce something to show rather than a blank widget.
-fun rowLabel(summary: ServiceSummary): String = when (summary) {
+fun rowLabel(summary: ServiceSummary, colorFor: (LineEmphasis) -> Int): CharSequence = when (summary) {
     is ServiceSummary.FreeGames -> "Free now"
-    is ServiceSummary.CaduTrack -> if (caduTrackItemsExpired(summary.data)) "Expired" else "Expiring soon"
+    is ServiceSummary.CaduTrack -> {
+        val data = summary.data
+        when {
+            data.expiredProducts.isNotEmpty() && data.next.isNotEmpty() -> caduTrackMixedLabel(data, colorFor)
+            data.expiredProducts.isNotEmpty() -> "Expired"
+            else -> "Expiring soon"
+        }
+    }
     is ServiceSummary.Error -> "Error"
     ServiceSummary.Unknown -> ""
 }
@@ -35,9 +58,16 @@ fun rowLabel(summary: ServiceSummary): String = when (summary) {
 // not sharing width with the value like the compact row does). The
 // per-service widget keeps the terser rowLabel for its header since the
 // service name is already right above it as the widget's own title.
-fun expandedRowLabel(summary: ServiceSummary): String = when (summary) {
+fun expandedRowLabel(summary: ServiceSummary, colorFor: (LineEmphasis) -> Int): CharSequence = when (summary) {
     is ServiceSummary.FreeGames -> "Free games"
-    is ServiceSummary.CaduTrack -> if (caduTrackItemsExpired(summary.data)) "Food expired" else "Food expiring soon"
+    is ServiceSummary.CaduTrack -> {
+        val data = summary.data
+        when {
+            data.expiredProducts.isNotEmpty() && data.next.isNotEmpty() -> caduTrackMixedLabel(data, colorFor)
+            data.expiredProducts.isNotEmpty() -> "Food expired"
+            else -> "Food expiring soon"
+        }
+    }
     is ServiceSummary.Error -> "Error"
     ServiceSummary.Unknown -> ""
 }

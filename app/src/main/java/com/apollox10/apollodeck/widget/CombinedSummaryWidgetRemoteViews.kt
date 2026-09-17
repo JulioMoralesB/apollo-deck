@@ -132,7 +132,7 @@ private fun buildCombinedSummaryWidgetRemoteViews(context: Context, appWidgetId:
             // The expanded label gets a full line to itself (not shared
             // with the value like the compact row), so it can afford the
             // more descriptive expandedRowLabel instead of rowLabel.
-            views.setTextViewText(row.expandedLabel, summary?.let { expandedRowLabel(it) } ?: rowPlan.serviceName)
+            views.setTextViewText(row.expandedLabel, summary?.let { expandedRowLabel(it) { e -> colorFor(e).toArgb() } } ?: rowPlan.serviceName)
             val maxChars = estimateCharBudget(widthDp, lines = 2, fullWidth = true)
             // Unlike the compact row (one shared color for label + value),
             // the expanded value has room to color each item by its own
@@ -149,7 +149,7 @@ private fun buildCombinedSummaryWidgetRemoteViews(context: Context, appWidgetId:
         } else {
             views.setViewVisibility(row.expanded, View.GONE)
             views.setViewVisibility(row.compact, View.VISIBLE)
-            views.setTextViewText(row.compactLabel, summary?.let { rowLabel(it) } ?: rowPlan.serviceName)
+            views.setTextViewText(row.compactLabel, summary?.let { rowLabel(it) { e -> colorFor(e).toArgb() } } ?: rowPlan.serviceName)
             val maxChars = estimateCharBudget(widthDp, lines = 1, fullWidth = false)
             views.setTextViewText(row.compactValue, placeholder ?: joinTruncated(names, maxChars))
             views.setTextColor(row.compactValue, color)

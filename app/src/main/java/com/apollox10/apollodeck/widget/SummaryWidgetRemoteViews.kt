@@ -64,7 +64,7 @@ private fun buildSummaryWidgetRemoteViews(context: Context, appWidgetId: Int): R
     }
 
     views.setViewVisibility(R.id.summary_widget_header, View.VISIBLE)
-    views.setTextViewText(R.id.summary_widget_header, rowLabel(summary))
+    views.setTextViewText(R.id.summary_widget_header, rowLabel(summary) { colorFor(it).toArgb() })
     views.setTextColor(R.id.summary_widget_header, colorFor(emphasisFor(summary)).toArgb())
 
     val items = summaryItems(summary)
