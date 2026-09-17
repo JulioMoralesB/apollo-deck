@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Plain RemoteViews layout for the combined summary widget — one row per
-     service with a summary_endpoint, label left / value right on the same
-     line (matches the mockup). Fixed set of up to
-     CombinedSummaryWidgetRemoteViews.MAX_ROWS rows, GONE/VISIBLE per row —
-     same reasoning as widget_summary.xml. -->
+     service with a summary_endpoint. Each row declares two pre-built
+     variants (compact: label left / value right, one line each; expanded:
+     label above, value below spanning up to 2 lines) with only one visible
+     at a time — CombinedSummaryWidgetRemoteViews.planRows picks per row
+     based on the widget's current placed size. RemoteViews has no dynamic
+     child list or runtime layout restructuring, so both variants have to be
+     pre-declared and toggled, same reasoning as widget_summary.xml. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/combined_summary_widget_root"
     android:layout_width="match_parent"
@@ -27,115 +30,247 @@
             android:alpha="0.5"
             android:layout_marginBottom="10dp" />
 
+        <!-- Row 1 -->
         <LinearLayout
             android:id="@+id/combined_summary_widget_row1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:layout_marginBottom="8dp">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row1_label"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row1_compact"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:textSize="11sp"
-                android:alpha="0.6"
-                android:maxLines="1" />
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row1_value"
-                android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/combined_summary_widget_row1_compact_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textSize="11sp"
+                    android:alpha="0.6"
+                    android:maxLines="1" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row1_compact_value"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:gravity="end"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row1_expanded"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="12sp"
-                android:gravity="end"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row1_expanded_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textSize="10sp"
+                    android:alpha="0.6"
+                    android:maxLines="1"
+                    android:layout_marginBottom="2dp" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row1_expanded_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:maxLines="2" />
+            </LinearLayout>
         </LinearLayout>
 
+        <!-- Row 2 -->
         <LinearLayout
             android:id="@+id/combined_summary_widget_row2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:layout_marginBottom="8dp">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row2_label"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row2_compact"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:textSize="11sp"
-                android:alpha="0.6"
-                android:maxLines="1" />
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row2_value"
-                android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/combined_summary_widget_row2_compact_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textSize="11sp"
+                    android:alpha="0.6"
+                    android:maxLines="1" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row2_compact_value"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:gravity="end"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row2_expanded"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="12sp"
-                android:gravity="end"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row2_expanded_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textSize="10sp"
+                    android:alpha="0.6"
+                    android:maxLines="1"
+                    android:layout_marginBottom="2dp" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row2_expanded_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:maxLines="2" />
+            </LinearLayout>
         </LinearLayout>
 
+        <!-- Row 3 -->
         <LinearLayout
             android:id="@+id/combined_summary_widget_row3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:layout_marginBottom="8dp">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row3_label"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row3_compact"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:textSize="11sp"
-                android:alpha="0.6"
-                android:maxLines="1" />
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row3_value"
-                android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/combined_summary_widget_row3_compact_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textSize="11sp"
+                    android:alpha="0.6"
+                    android:maxLines="1" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row3_compact_value"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:gravity="end"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row3_expanded"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="12sp"
-                android:gravity="end"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row3_expanded_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textSize="10sp"
+                    android:alpha="0.6"
+                    android:maxLines="1"
+                    android:layout_marginBottom="2dp" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row3_expanded_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:maxLines="2" />
+            </LinearLayout>
         </LinearLayout>
 
+        <!-- Row 4 -->
         <LinearLayout
             android:id="@+id/combined_summary_widget_row4"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row4_label"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row4_compact"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:textSize="11sp"
-                android:alpha="0.6"
-                android:maxLines="1" />
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/combined_summary_widget_row4_value"
-                android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/combined_summary_widget_row4_compact_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textSize="11sp"
+                    android:alpha="0.6"
+                    android:maxLines="1" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row4_compact_value"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:gravity="end"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/combined_summary_widget_row4_expanded"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="12sp"
-                android:gravity="end"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row4_expanded_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textSize="10sp"
+                    android:alpha="0.6"
+                    android:maxLines="1"
+                    android:layout_marginBottom="2dp" />
+
+                <TextView
+                    android:id="@+id/combined_summary_widget_row4_expanded_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:maxLines="2" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView
