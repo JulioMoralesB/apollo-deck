@@ -79,6 +79,14 @@ private fun buildSummaryWidgetRemoteViews(context: Context, appWidgetId: Int): R
     // genuine overflow — if everything fits, every row is a real name.
     val namesShown = if (names.size <= shownCount) names else names.take((shownCount - 1).coerceAtLeast(0))
 
+    if (namesShown.isEmpty()) {
+        // Not even one name fits — "+N more" would wrongly imply some are
+        // already listed above it when none are, so this is its own
+        // standalone count statement instead of a list continuation.
+        showSingleRow(views, itemCountPhrase(summary, names.size), colorFor(emphasisFor(summary)))
+        return views
+    }
+
     ITEM_ROW_IDS.forEachIndexed { i, rowId ->
         when {
             i < namesShown.size -> {

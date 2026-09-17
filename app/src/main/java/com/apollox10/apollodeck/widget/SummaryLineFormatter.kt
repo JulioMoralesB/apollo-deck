@@ -42,6 +42,22 @@ fun emptyPlaceholder(summary: ServiceSummary): String = when (summary) {
     ServiceSummary.Unknown -> ""
 }
 
+// A standalone count statement ("5 free games"), for when there's no room
+// to name even a single item — "+N more" only makes sense as a continuation
+// of names already shown above it; with zero shown, "+N more" claims
+// something is already listed when nothing is, which reads as flat-out
+// wrong rather than just terse. Always self-descriptive on its own (doesn't
+// lean on the header row for context), in case that's ever tight on space too.
+fun itemCountPhrase(summary: ServiceSummary, count: Int): String {
+    val plural = if (count == 1) "" else "s"
+    return when (summary) {
+        is ServiceSummary.FreeGames -> "$count free game$plural"
+        is ServiceSummary.CaduTrack -> "$count item$plural expiring"
+        is ServiceSummary.Error -> summary.message
+        ServiceSummary.Unknown -> "$count item$plural"
+    }
+}
+
 fun emphasisFor(summary: ServiceSummary): LineEmphasis = when (summary) {
     is ServiceSummary.CaduTrack -> if (summary.data.expiringSoon > 0) LineEmphasis.Warning else LineEmphasis.Normal
     is ServiceSummary.Error -> LineEmphasis.Danger
@@ -70,7 +86,10 @@ fun joinTruncated(items: List<String>, maxChars: Int): String {
         sb.append(separator).append(items[i])
         shown++
     }
-    if (shown == 0) return items[0].take(maxChars.coerceAtLeast(1))
+    // Not even the first name fits — an extremely narrow placement. A bare
+    // character truncation here would silently look like a complete (if
+    // odd) word, so mark it explicitly cut off instead.
+    if (shown == 0) return items[0].take((maxChars - 1).coerceAtLeast(1)) + "…"
     val remaining = items.size - shown
     return if (remaining > 0) "$sb +$remaining more" else sb.toString()
 }
