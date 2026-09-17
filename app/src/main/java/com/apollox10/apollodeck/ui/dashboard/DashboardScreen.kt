@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
+import com.apollox10.apollodeck.core.model.CaduTrackItem
 import com.apollox10.apollodeck.core.model.CaduTrackSummary
 import com.apollox10.apollodeck.core.model.FreeGamesSummary
 import com.apollox10.apollodeck.core.model.Service
@@ -585,7 +586,7 @@ private fun CaduTrackSummaryContent(data: CaduTrackSummary) {
             SummaryStat("Expired", data.expired, if (data.expired > 0) ErrorRed else null)
             SummaryStat("Expiring soon", data.expiringSoon, if (data.expiringSoon > 0) WarningAmber else null)
         }
-        if (data.next.isEmpty()) {
+        if (data.expiredProducts.isEmpty() && data.next.isEmpty()) {
             Text(
                 "Nothing tracked",
                 style = MonospaceTextStyle,
@@ -594,27 +595,37 @@ private fun CaduTrackSummaryContent(data: CaduTrackSummary) {
                 modifier = Modifier.padding(top = 10.dp),
             )
         } else {
-            Text(
-                "Next",
-                style = MonospaceTextStyle,
-                fontSize = 9.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                data.next.forEach { item ->
-                    val eta = formatEta(item.expiresAt)
-                    Column {
-                        Text(item.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                        eta?.let {
-                            Text(
-                                it,
-                                style = MonospaceTextStyle,
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            )
-                        }
-                    }
+            if (data.expiredProducts.isNotEmpty()) {
+                CaduTrackItemList("Expired", data.expiredProducts)
+            }
+            if (data.next.isNotEmpty()) {
+                CaduTrackItemList("Next", data.next)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CaduTrackItemList(label: String, items: List<CaduTrackItem>) {
+    Text(
+        label,
+        style = MonospaceTextStyle,
+        fontSize = 9.sp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+        modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items.forEach { item ->
+            val eta = formatEta(item.expiresAt)
+            Column {
+                Text(item.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                eta?.let {
+                    Text(
+                        it,
+                        style = MonospaceTextStyle,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    )
                 }
             }
         }

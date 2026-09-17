@@ -6,16 +6,12 @@ import com.apollox10.apollodeck.core.model.formatEta
 
 enum class LineEmphasis { Normal, Warning, Danger }
 
-// CaduTrack's `next` is "the most urgent active item(s) by date, whichever
-// bucket they fall into" (per its own documented contract) — not "the
-// expiring-soon ones specifically". Every item in `next` shares the same
-// date (they're tied for most urgent), so checking the first is enough:
-// once that date has passed, the whole group already expired rather than
-// being "soon" — confirmed live (see fix commit) with real data where
-// `next` held 3 already-expired items while `expiring_soon` counted a
-// different, unrelated item entirely.
+// CaduTrack now splits expired items into their own `expired_products` field
+// (see SummaryModels.kt) rather than conflating them into `next`. Both
+// summary widgets still only have room for one bucket at a time, so this
+// picks whichever is more urgent: expired outranks merely-soon.
 private fun caduTrackItemsExpired(data: CaduTrackSummary): Boolean =
-    data.next.firstOrNull()?.let { formatEta(it.expiresAt) == "expired" } ?: false
+    data.expiredProducts.isNotEmpty()
 
 // Both summary widgets show a list of item names (game titles, or CaduTrack's
 // soonest-expiring items) rather than per-item metadata — tapping the widget
@@ -43,7 +39,10 @@ fun expandedRowLabel(summary: ServiceSummary): String = when (summary) {
 
 fun itemNames(summary: ServiceSummary): List<String> = when (summary) {
     is ServiceSummary.FreeGames -> summary.data.activePromotions.map { it.title }
-    is ServiceSummary.CaduTrack -> summary.data.next.map { it.name }
+    is ServiceSummary.CaduTrack -> {
+        val data = summary.data
+        (if (caduTrackItemsExpired(data)) data.expiredProducts else data.next).map { it.name }
+    }
     is ServiceSummary.Error -> emptyList()
     ServiceSummary.Unknown -> emptyList()
 }
