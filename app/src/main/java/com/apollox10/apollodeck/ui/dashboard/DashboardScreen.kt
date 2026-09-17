@@ -262,7 +262,9 @@ fun DashboardScreen(
 
                 is DashboardUiState.Loaded -> if (selectedService != null) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        summaries[selectedService.name]?.let { SummarySection(it) }
+                        summaries[selectedService.name]?.let {
+                            SummarySection(it, hasActions = !selectedService.actions.isNullOrEmpty())
+                        }
                         ActionGrid(
                             service = selectedService,
                             actionStates = actionStates,
@@ -522,8 +524,18 @@ private fun ActionButton(action: Action, state: ActionCardState?, modifier: Modi
 // service name, same reasoning as the web version. An unrecognized shape
 // renders nothing rather than an empty card.
 @Composable
-private fun SummarySection(summary: ServiceSummary) {
+private fun SummarySection(summary: ServiceSummary, hasActions: Boolean) {
     if (summary is ServiceSummary.Unknown) return
+
+    // The height cap only exists to protect ActionGrid below it — a service
+    // with no actions has nothing there to protect, and capping it anyway
+    // just hides content (e.g. CaduTrack's Next section) behind a scroll a
+    // user has no reason to expect, on a screen with plenty of empty room.
+    val heightModifier = if (hasActions) {
+        Modifier.heightIn(max = SUMMARY_SECTION_MAX_HEIGHT).verticalScroll(rememberScrollState())
+    } else {
+        Modifier
+    }
 
     Column(
         modifier = Modifier
@@ -531,8 +543,7 @@ private fun SummarySection(summary: ServiceSummary) {
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .heightIn(max = SUMMARY_SECTION_MAX_HEIGHT)
-            .verticalScroll(rememberScrollState())
+            .then(heightModifier)
             .padding(14.dp),
     ) {
         when (summary) {
