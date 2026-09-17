@@ -20,10 +20,14 @@ data class FreeGamesSummary(
     @SerialName("active_promotions") val activePromotions: List<FreeGamesPromotion> = emptyList(),
 )
 
-// CaduTrack's /summary: { expired, expiring_soon, next: { name, expires_at }[] }
-// `next` holds every item tied for the most urgent expiration date, not just one.
+// CaduTrack's /summary: { expired, expired_products[], expiring_soon, next[] }
+// `next` and `expired_products` share the same item shape. `next` holds the
+// item(s) genuinely expiring soon (not yet expired); `expired_products` holds
+// the already-expired ones — split into separate fields, unlike the earlier
+// contract where `next` conflated both by always surfacing whichever bucket
+// was most urgent.
 @Serializable
-data class CaduTrackNextItem(
+data class CaduTrackItem(
     val name: String,
     @SerialName("expires_at") val expiresAt: String,
 )
@@ -31,8 +35,9 @@ data class CaduTrackNextItem(
 @Serializable
 data class CaduTrackSummary(
     val expired: Int,
+    @SerialName("expired_products") val expiredProducts: List<CaduTrackItem> = emptyList(),
     @SerialName("expiring_soon") val expiringSoon: Int,
-    val next: List<CaduTrackNextItem> = emptyList(),
+    val next: List<CaduTrackItem> = emptyList(),
 )
 
 // Mirrors the web dashboard's SummaryPanel.jsx: each service defines its own

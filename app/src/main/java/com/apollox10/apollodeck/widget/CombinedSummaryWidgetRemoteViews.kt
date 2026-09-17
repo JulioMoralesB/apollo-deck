@@ -132,14 +132,24 @@ private fun buildCombinedSummaryWidgetRemoteViews(context: Context, appWidgetId:
             // The expanded label gets a full line to itself (not shared
             // with the value like the compact row), so it can afford the
             // more descriptive expandedRowLabel instead of rowLabel.
-            views.setTextViewText(row.expandedLabel, summary?.let { expandedRowLabel(it) } ?: rowPlan.serviceName)
+            views.setTextViewText(row.expandedLabel, summary?.let { expandedRowLabel(it) { e -> colorFor(e).toArgb() } } ?: rowPlan.serviceName)
             val maxChars = estimateCharBudget(widthDp, lines = 2, fullWidth = true)
-            views.setTextViewText(row.expandedValue, placeholder ?: joinTruncated(names, maxChars))
+            // Unlike the compact row (one shared color for label + value),
+            // the expanded value has room to color each item by its own
+            // bucket — an expired item and a merely-soon item shown
+            // together without either one's color misrepresenting it.
+            val value = if (placeholder != null) placeholder else {
+                val items = summary?.let { summaryItems(it) } ?: emptyList()
+                joinTruncatedSpannable(items, maxChars) { emphasis -> colorFor(emphasis).toArgb() }
+            }
+            views.setTextViewText(row.expandedValue, value)
+            // Spans above override this per item; it's still needed as the
+            // base color for the placeholder text and the "+N more" suffix.
             views.setTextColor(row.expandedValue, color)
         } else {
             views.setViewVisibility(row.expanded, View.GONE)
             views.setViewVisibility(row.compact, View.VISIBLE)
-            views.setTextViewText(row.compactLabel, summary?.let { rowLabel(it) } ?: rowPlan.serviceName)
+            views.setTextViewText(row.compactLabel, summary?.let { rowLabel(it) { e -> colorFor(e).toArgb() } } ?: rowPlan.serviceName)
             val maxChars = estimateCharBudget(widthDp, lines = 1, fullWidth = false)
             views.setTextViewText(row.compactValue, placeholder ?: joinTruncated(names, maxChars))
             views.setTextColor(row.compactValue, color)

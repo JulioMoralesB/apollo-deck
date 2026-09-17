@@ -52,7 +52,8 @@
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:alpha="0.6"
-                    android:maxLines="1" />
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/combined_summary_widget_row1_compact_value"
@@ -80,6 +81,7 @@
                     android:textSize="10sp"
                     android:alpha="0.6"
                     android:maxLines="1"
+                    android:ellipsize="end"
                     android:layout_marginBottom="2dp" />
 
                 <TextView
@@ -113,7 +115,8 @@
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:alpha="0.6"
-                    android:maxLines="1" />
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/combined_summary_widget_row2_compact_value"
@@ -141,6 +144,7 @@
                     android:textSize="10sp"
                     android:alpha="0.6"
                     android:maxLines="1"
+                    android:ellipsize="end"
                     android:layout_marginBottom="2dp" />
 
                 <TextView
@@ -174,7 +178,8 @@
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:alpha="0.6"
-                    android:maxLines="1" />
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/combined_summary_widget_row3_compact_value"
@@ -202,6 +207,7 @@
                     android:textSize="10sp"
                     android:alpha="0.6"
                     android:maxLines="1"
+                    android:ellipsize="end"
                     android:layout_marginBottom="2dp" />
 
                 <TextView
@@ -234,7 +240,8 @@
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:alpha="0.6"
-                    android:maxLines="1" />
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/combined_summary_widget_row4_compact_value"
@@ -262,6 +269,7 @@
                     android:textSize="10sp"
                     android:alpha="0.6"
                     android:maxLines="1"
+                    android:ellipsize="end"
                     android:layout_marginBottom="2dp" />
 
                 <TextView
