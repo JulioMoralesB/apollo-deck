@@ -596,17 +596,20 @@ private fun CaduTrackSummaryContent(data: CaduTrackSummary) {
             )
         } else {
             if (data.expiredProducts.isNotEmpty()) {
-                CaduTrackItemList("Expired", data.expiredProducts)
+                CaduTrackItemList("Expired", data.expiredProducts, ErrorRed)
             }
             if (data.next.isNotEmpty()) {
-                CaduTrackItemList("Next", data.next)
+                CaduTrackItemList("Next", data.next, WarningAmber)
             }
         }
     }
 }
 
+// accentColor mirrors the widgets' red/expired-amber/soon distinction, muted
+// (lower alpha) since a full-saturation tint reads fine in a small widget
+// row but is too loud spread across a whole dashboard panel.
 @Composable
-private fun CaduTrackItemList(label: String, items: List<CaduTrackItem>) {
+private fun CaduTrackItemList(label: String, items: List<CaduTrackItem>, accentColor: Color) {
     Text(
         label,
         style = MonospaceTextStyle,
@@ -618,7 +621,7 @@ private fun CaduTrackItemList(label: String, items: List<CaduTrackItem>) {
         items.forEach { item ->
             val eta = formatEta(item.expiresAt)
             Column {
-                Text(item.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                Text(item.name, fontSize = 12.sp, color = accentColor.copy(alpha = 0.75f))
                 eta?.let {
                     Text(
                         it,
