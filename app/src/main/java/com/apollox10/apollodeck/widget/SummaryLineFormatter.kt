@@ -1,8 +1,21 @@
 package com.apollox10.apollodeck.widget
 
+import com.apollox10.apollodeck.core.model.CaduTrackSummary
 import com.apollox10.apollodeck.core.model.ServiceSummary
+import com.apollox10.apollodeck.core.model.formatEta
 
 enum class LineEmphasis { Normal, Warning, Danger }
+
+// CaduTrack's `next` is "the most urgent active item(s) by date, whichever
+// bucket they fall into" (per its own documented contract) — not "the
+// expiring-soon ones specifically". Every item in `next` shares the same
+// date (they're tied for most urgent), so checking the first is enough:
+// once that date has passed, the whole group already expired rather than
+// being "soon" — confirmed live (see fix commit) with real data where
+// `next` held 3 already-expired items while `expiring_soon` counted a
+// different, unrelated item entirely.
+private fun caduTrackItemsExpired(data: CaduTrackSummary): Boolean =
+    data.next.firstOrNull()?.let { formatEta(it.expiresAt) == "expired" } ?: false
 
 // Both summary widgets show a list of item names (game titles, or CaduTrack's
 // soonest-expiring items) rather than per-item metadata — tapping the widget
@@ -11,7 +24,7 @@ enum class LineEmphasis { Normal, Warning, Danger }
 // errors still produce something to show rather than a blank widget.
 fun rowLabel(summary: ServiceSummary): String = when (summary) {
     is ServiceSummary.FreeGames -> "Free now"
-    is ServiceSummary.CaduTrack -> "Expiring soon"
+    is ServiceSummary.CaduTrack -> if (caduTrackItemsExpired(summary.data)) "Expired" else "Expiring soon"
     is ServiceSummary.Error -> "Error"
     ServiceSummary.Unknown -> ""
 }
@@ -23,7 +36,7 @@ fun rowLabel(summary: ServiceSummary): String = when (summary) {
 // service name is already right above it as the widget's own title.
 fun expandedRowLabel(summary: ServiceSummary): String = when (summary) {
     is ServiceSummary.FreeGames -> "Free games"
-    is ServiceSummary.CaduTrack -> "Food expiring soon"
+    is ServiceSummary.CaduTrack -> if (caduTrackItemsExpired(summary.data)) "Food expired" else "Food expiring soon"
     is ServiceSummary.Error -> "Error"
     ServiceSummary.Unknown -> ""
 }
@@ -52,14 +65,27 @@ fun itemCountPhrase(summary: ServiceSummary, count: Int): String {
     val plural = if (count == 1) "" else "s"
     return when (summary) {
         is ServiceSummary.FreeGames -> "$count free game$plural"
-        is ServiceSummary.CaduTrack -> "$count item$plural expiring"
+        is ServiceSummary.CaduTrack -> {
+            val verb = if (caduTrackItemsExpired(summary.data)) "expired" else "expiring"
+            "$count item$plural $verb"
+        }
         is ServiceSummary.Error -> summary.message
         ServiceSummary.Unknown -> "$count item$plural"
     }
 }
 
+// Danger (red) once the shown items have actually passed their date, not
+// just "expiring soon" (amber) — matches the web dashboard's own
+// expired/expiring-soon color convention (SummaryPanel.css). Driven by the
+// items actually shown (next), not the expiring_soon count, which can — and
+// in production does — refer to a different item entirely than whatever's
+// currently the most urgent.
 fun emphasisFor(summary: ServiceSummary): LineEmphasis = when (summary) {
-    is ServiceSummary.CaduTrack -> if (summary.data.expiringSoon > 0) LineEmphasis.Warning else LineEmphasis.Normal
+    is ServiceSummary.CaduTrack -> when {
+        caduTrackItemsExpired(summary.data) -> LineEmphasis.Danger
+        summary.data.next.isNotEmpty() -> LineEmphasis.Warning
+        else -> LineEmphasis.Normal
+    }
     is ServiceSummary.Error -> LineEmphasis.Danger
     else -> LineEmphasis.Normal
 }
