@@ -67,36 +67,36 @@ private fun buildSummaryWidgetRemoteViews(context: Context, appWidgetId: Int): R
     views.setTextViewText(R.id.summary_widget_header, rowLabel(summary))
     views.setTextColor(R.id.summary_widget_header, colorFor(emphasisFor(summary)).toArgb())
 
-    val names = itemNames(summary)
-    if (names.isEmpty()) {
+    val items = summaryItems(summary)
+    if (items.isEmpty()) {
         showSingleRow(views, emptyPlaceholder(summary), NormalText)
         return views
     }
 
     val maxRows = availableItemRows(context, appWidgetId)
-    val shownCount = minOf(names.size, maxRows, ITEM_ROW_IDS.size)
+    val shownCount = minOf(items.size, maxRows, ITEM_ROW_IDS.size)
     // Reserve the last visible row for a "+N more" summary only when there's
     // genuine overflow — if everything fits, every row is a real name.
-    val namesShown = if (names.size <= shownCount) names else names.take((shownCount - 1).coerceAtLeast(0))
+    val itemsShown = if (items.size <= shownCount) items else items.take((shownCount - 1).coerceAtLeast(0))
 
-    if (namesShown.isEmpty()) {
+    if (itemsShown.isEmpty()) {
         // Not even one name fits — "+N more" would wrongly imply some are
         // already listed above it when none are, so this is its own
         // standalone count statement instead of a list continuation.
-        showSingleRow(views, itemCountPhrase(summary, names.size), colorFor(emphasisFor(summary)))
+        showSingleRow(views, itemCountPhrase(summary, items.size), colorFor(emphasisFor(summary)))
         return views
     }
 
     ITEM_ROW_IDS.forEachIndexed { i, rowId ->
         when {
-            i < namesShown.size -> {
+            i < itemsShown.size -> {
                 views.setViewVisibility(rowId, View.VISIBLE)
-                views.setTextViewText(rowId, namesShown[i])
-                views.setTextColor(rowId, NormalText.toArgb())
+                views.setTextViewText(rowId, itemsShown[i].name)
+                views.setTextColor(rowId, colorFor(itemsShown[i].emphasis).toArgb())
             }
-            i == namesShown.size && names.size > namesShown.size -> {
+            i == itemsShown.size && items.size > itemsShown.size -> {
                 views.setViewVisibility(rowId, View.VISIBLE)
-                views.setTextViewText(rowId, "+${names.size - namesShown.size} more")
+                views.setTextViewText(rowId, "+${items.size - itemsShown.size} more")
                 views.setTextColor(rowId, NormalText.toArgb())
             }
             else -> views.setViewVisibility(rowId, View.GONE)
