@@ -4,6 +4,10 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import com.apollox10.apollodeck.core.model.CaduTrackSummary
+import com.apollox10.apollodeck.core.model.EnergySummary
+import com.apollox10.apollodeck.core.model.formatCost
+import com.apollox10.apollodeck.core.model.formatKwh
+import com.apollox10.apollodeck.core.model.formatWatts
 import com.apollox10.apollodeck.core.model.ServiceSummary
 import com.apollox10.apollodeck.core.model.formatEta
 
@@ -17,6 +21,13 @@ data class SummaryItem(val name: String, val emphasis: LineEmphasis)
 // picks whichever is more urgent: expired outranks merely-soon.
 private fun caduTrackItemsExpired(data: CaduTrackSummary): Boolean =
     data.expiredProducts.isNotEmpty()
+
+// Totals first (what a glance is for), then the per-device breakdown.
+private fun energyTotals(data: EnergySummary): List<String> = listOfNotNull(
+    "${formatWatts(data.powerW)} now",
+    data.todayKwh?.let { kwh -> "${formatKwh(kwh)} today" + (data.costOf(kwh)?.let { " (${formatCost(it)})" } ?: "") },
+    data.last60DaysKwh?.let { kwh -> "60 d: ${formatKwh(kwh)}" + (data.costOf(kwh)?.let { " (${formatCost(it)})" } ?: "") },
+)
 
 // A single word like "Expired" would misrepresent whichever items came from
 // the other bucket once both are shown together — so when both are
@@ -41,6 +52,7 @@ private fun caduTrackMixedLabel(data: CaduTrackSummary, colorFor: (LineEmphasis)
 // errors still produce something to show rather than a blank widget.
 fun rowLabel(summary: ServiceSummary, colorFor: (LineEmphasis) -> Int): CharSequence = when (summary) {
     is ServiceSummary.FreeGames -> "Free now"
+    is ServiceSummary.Energy -> "Power"
     is ServiceSummary.CaduTrack -> {
         val data = summary.data
         when {
@@ -60,6 +72,7 @@ fun rowLabel(summary: ServiceSummary, colorFor: (LineEmphasis) -> Int): CharSequ
 // service name is already right above it as the widget's own title.
 fun expandedRowLabel(summary: ServiceSummary, colorFor: (LineEmphasis) -> Int): CharSequence = when (summary) {
     is ServiceSummary.FreeGames -> "Free games"
+    is ServiceSummary.Energy -> "Energy"
     is ServiceSummary.CaduTrack -> {
         val data = summary.data
         when {
@@ -79,6 +92,7 @@ fun expandedRowLabel(summary: ServiceSummary, colorFor: (LineEmphasis) -> Int): 
 // urgent, same as before the buckets were split apart.
 fun itemNames(summary: ServiceSummary): List<String> = when (summary) {
     is ServiceSummary.FreeGames -> summary.data.activePromotions.map { it.title }
+    is ServiceSummary.Energy -> energyTotals(summary.data)
     is ServiceSummary.CaduTrack -> {
         val data = summary.data
         (if (caduTrackItemsExpired(data)) data.expiredProducts else data.next).map { it.name }
@@ -94,6 +108,9 @@ fun itemNames(summary: ServiceSummary): List<String> = when (summary) {
 // shown together without the color misrepresenting either one.
 fun summaryItems(summary: ServiceSummary): List<SummaryItem> = when (summary) {
     is ServiceSummary.FreeGames -> summary.data.activePromotions.map { SummaryItem(it.title, LineEmphasis.Normal) }
+    is ServiceSummary.Energy -> (
+        energyTotals(summary.data) + summary.data.devices.map { "${it.name} · ${formatWatts(it.powerW)}" }
+        ).map { SummaryItem(it, LineEmphasis.Normal) }
     is ServiceSummary.CaduTrack -> {
         val data = summary.data
         data.expiredProducts.map { SummaryItem(it.name, LineEmphasis.Danger) } +
@@ -106,6 +123,7 @@ fun summaryItems(summary: ServiceSummary): List<SummaryItem> = when (summary) {
 fun emptyPlaceholder(summary: ServiceSummary): String = when (summary) {
     is ServiceSummary.FreeGames -> "No active promotions"
     is ServiceSummary.CaduTrack -> "Nothing tracked"
+    is ServiceSummary.Energy -> "No data"
     is ServiceSummary.Error -> summary.message
     ServiceSummary.Unknown -> ""
 }
@@ -120,6 +138,7 @@ fun itemCountPhrase(summary: ServiceSummary, count: Int): String {
     val plural = if (count == 1) "" else "s"
     return when (summary) {
         is ServiceSummary.FreeGames -> "$count free game$plural"
+        is ServiceSummary.Energy -> formatWatts(summary.data.powerW)
         is ServiceSummary.CaduTrack -> {
             val expiredCount = summary.data.expiredProducts.size
             val soonCount = summary.data.next.size

@@ -68,6 +68,14 @@ import com.apollox10.apollodeck.core.store.ActionPrefsStore
 import com.apollox10.apollodeck.core.store.sortedByActionOrder
 import com.apollox10.apollodeck.core.model.CaduTrackItem
 import com.apollox10.apollodeck.core.model.CaduTrackSummary
+import com.apollox10.apollodeck.core.model.formatWatts
+import com.apollox10.apollodeck.core.model.formatKwh
+import com.apollox10.apollodeck.core.model.EnergySummary
+import java.util.Locale
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.apollox10.apollodeck.core.model.formatCost
+import com.apollox10.apollodeck.core.model.EnergyDay
 import com.apollox10.apollodeck.core.model.FreeGamesSummary
 import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.core.model.ServiceSummary
@@ -593,6 +601,7 @@ private fun SummarySection(summary: ServiceSummary, hasActions: Boolean) {
         when (summary) {
             is ServiceSummary.FreeGames -> FreeGamesSummaryContent(summary.data)
             is ServiceSummary.CaduTrack -> CaduTrackSummaryContent(summary.data)
+            is ServiceSummary.Energy -> EnergySummaryContent(summary.data)
             is ServiceSummary.Error -> Text(summary.message, style = MonospaceTextStyle, fontSize = 11.sp, color = ErrorRed)
             ServiceSummary.Unknown -> Unit
         }
@@ -638,8 +647,8 @@ private fun FreeGamesSummaryContent(data: FreeGamesSummary) {
 private fun CaduTrackSummaryContent(data: CaduTrackSummary) {
     Column {
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            SummaryStat("Expired", data.expired, if (data.expired > 0) ErrorRed else null)
-            SummaryStat("Expiring soon", data.expiringSoon, if (data.expiringSoon > 0) WarningAmber else null)
+            SummaryStat("Expired", "${data.expired}", if (data.expired > 0) ErrorRed else null)
+            SummaryStat("Expiring soon", "${data.expiringSoon}", if (data.expiringSoon > 0) WarningAmber else null)
         }
         if (data.expiredProducts.isEmpty() && data.next.isEmpty()) {
             Text(
@@ -691,10 +700,116 @@ private fun CaduTrackItemList(label: String, items: List<CaduTrackItem>, accentC
 }
 
 @Composable
-private fun SummaryStat(label: String, value: Int, highlightColor: Color?) {
+private fun EnergySummaryContent(data: EnergySummary) {
+    val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+    fun costSuffix(kwh: Double, withCurrency: Boolean): String =
+        data.costOf(kwh)?.let { cost ->
+            " · " + formatCost(cost) + if (withCurrency) data.currency?.let { " $it" }.orEmpty() else ""
+        }.orEmpty()
+
+    Column {
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            SummaryStat("Now", formatWatts(data.powerW), null)
+            data.todayKwh?.let { SummaryStat("Today" + costSuffix(it, withCurrency = false), formatKwh(it), null) }
+        }
+        if (data.daily.isNotEmpty()) {
+            val total = data.last60DaysKwh ?: data.daily.sumOf { it.kwh }
+            Column(modifier = Modifier.padding(top = 14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Last 60 days", style = MonospaceTextStyle, fontSize = 9.sp, color = dim)
+                    Text(
+                        formatKwh(total) + costSuffix(total, withCurrency = true),
+                        style = MonospaceTextStyle,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                EnergyBars(
+                    days = data.daily,
+                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth().height(44.dp),
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("60 days ago", style = MonospaceTextStyle, fontSize = 9.sp, color = dim)
+                    Text("today", style = MonospaceTextStyle, fontSize = 9.sp, color = dim)
+                }
+            }
+        }
+        if (data.devices.isNotEmpty()) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                data.devices.forEach { device ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(device.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            formatWatts(device.powerW),
+                            style = MonospaceTextStyle,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        )
+                    }
+                }
+            }
+        }
+        data.pricePerKwh?.takeIf { it > 0 }?.let { price ->
+            Text(
+                String.format(Locale.US, "Cost estimated at $%.2f %s/kWh", price, data.currency.orEmpty()),
+                style = MonospaceTextStyle,
+                fontSize = 9.sp,
+                color = dim,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+    }
+}
+
+// One bar per day, always 60 slots with the data right-aligned (today last),
+// so the history filling up a day at a time reads as a growing series
+// rather than one bar stretched across the whole width.
+@Composable
+private fun EnergyBars(days: List<EnergyDay>, modifier: Modifier = Modifier) {
+    val slots = 60
+    val shown = days.takeLast(slots)
+    val max = shown.maxOf { it.kwh }.coerceAtLeast(0.01)
+    val empty = slots - shown.size
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(1.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        repeat(slots) { i ->
+            val day = shown.getOrNull(i - empty)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(day?.let { (it.kwh / max).toFloat().coerceIn(0.04f, 1f) } ?: 0.04f)
+                    .background(
+                        when {
+                            day == null -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                            i == slots - 1 -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        },
+                        RoundedCornerShape(1.dp),
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryStat(label: String, value: String, highlightColor: Color?) {
     Column {
         Text(
-            "$value",
+            value,
             style = MonospaceTextStyle,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,

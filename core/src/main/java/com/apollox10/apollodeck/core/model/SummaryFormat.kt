@@ -4,6 +4,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import java.util.Locale
+import kotlin.math.roundToInt
 
 // Shared by the dashboard screen and the summary widgets so both read a date
 // the same way. Compares by local calendar day rather than raw elapsed
@@ -30,3 +32,14 @@ fun formatEta(iso: String?): String? {
         else -> "$diffDays days"
     }
 }
+
+// Shared by the dashboard panel, the summary widgets and the Wear energy
+// tile, so all of them render the same numbers the same way.
+fun formatWatts(watts: Double): String = "${watts.roundToInt()} W"
+
+fun formatKwh(kwh: Double): String = String.format(Locale.US, "%.2f kWh", kwh)
+
+// An estimate (flat price, not CFE's tiered tariff), hence the "~". Whole
+// units once it's big enough that cents are noise.
+fun formatCost(amount: Double): String =
+    if (amount >= 100) "~$${amount.roundToInt()}" else String.format(Locale.US, "~$%.2f", amount)
