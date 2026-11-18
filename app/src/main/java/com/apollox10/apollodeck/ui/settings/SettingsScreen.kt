@@ -33,7 +33,7 @@ fun SettingsScreen(
     onSaved: () -> Unit,
     onConfigureWatchTile: () -> Unit,
     onIconOverrides: () -> Unit,
-    onConfirmActions: () -> Unit,
+    onActionPrefs: () -> Unit,
     viewModel: SettingsViewModel = viewModel(),
 ) {
     Box(
@@ -114,14 +114,14 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 10.dp),
             )
             Button(
-                onClick = onConfirmActions,
+                onClick = onActionPrefs,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Confirm before running", style = MonospaceTextStyle)
+                Text("Order and confirmation", style = MonospaceTextStyle)
             }
 
             Text(

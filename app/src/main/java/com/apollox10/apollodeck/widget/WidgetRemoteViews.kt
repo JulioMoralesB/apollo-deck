@@ -12,7 +12,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.apollox10.apollodeck.core.store.ConfirmActionStore
+import com.apollox10.apollodeck.core.store.ActionPrefsStore
 import com.apollox10.apollodeck.R
 import com.apollox10.apollodeck.ui.icons.widgetIconFor
 
@@ -60,7 +60,7 @@ private fun buildWidgetRemoteViews(context: Context, appWidgetId: Int): RemoteVi
     }
 
     val status = loadWidgetStatus(context, appWidgetId)
-    val isWarning = ConfirmActionStore(context).isRequired(config.endpoint)
+    val isWarning = ActionPrefsStore(context).isConfirmRequired(config.endpoint)
     val accent = accentFor(config.accentId)
 
     // Precedence: a transient result always wins (it's what the user just

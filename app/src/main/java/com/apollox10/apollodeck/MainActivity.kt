@@ -18,7 +18,7 @@ import com.apollox10.apollodeck.core.store.TokenStore
 import com.apollox10.apollodeck.ui.dashboard.DashboardScreen
 import com.apollox10.apollodeck.ui.login.LoginScreen
 import com.apollox10.apollodeck.ui.theme.ApolloDeckTheme
-import com.apollox10.apollodeck.wearsync.ConfirmActionPublisher
+import com.apollox10.apollodeck.wearsync.ActionPrefsPublisher
 import com.apollox10.apollodeck.wearsync.PhoneSessionPublisher
 
 // Set by a summary widget row's tap target (see widget/SummaryWidgetRemoteViews.kt
@@ -58,11 +58,11 @@ fun ApolloDeckApp(initialServiceName: String? = null) {
 
     // Re-publish on every app open while logged in, not just at the moment
     // of login — covers a watch paired (or reinstalled) after the phone
-    // logged in, so its synced session and confirm set never drift.
+    // logged in, so its synced session and action prefs never drift.
     LaunchedEffect(loggedIn) {
         if (loggedIn) {
             PhoneSessionPublisher.publishCurrentSession(context)
-            ConfirmActionPublisher.publish(context)
+            ActionPrefsPublisher.publish(context)
         }
     }
 

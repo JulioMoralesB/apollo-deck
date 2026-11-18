@@ -5,7 +5,8 @@ import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.model.HaState
 import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.core.model.haIconToAppIcon
-import com.apollox10.apollodeck.core.store.ConfirmActionStore
+import com.apollox10.apollodeck.core.store.ActionPrefsStore
+import com.apollox10.apollodeck.core.store.sortedByActionOrder
 import com.apollox10.apollodeck.core.store.ServerConfigStore
 import com.apollox10.apollodeck.core.store.TokenStore
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,7 @@ class ApolloDeckClient(
     val actionExecutor: ActionExecutor,
     val tokenStore: TokenStore,
     val serverConfigStore: ServerConfigStore,
-    private val confirmActionStore: ConfirmActionStore,
+    private val actionPrefsStore: ActionPrefsStore,
 ) {
 
     // Two kinds of service come out of HA's states:
@@ -57,7 +58,7 @@ class ApolloDeckClient(
                     summaryEntityId = state.entityId,
                 )
             }
-        val confirmRequired = confirmActionStore.getAll()
+        val confirmRequired = actionPrefsStore.getConfirmRequired()
         val scriptActions = states
             .filter { it.entityId.startsWith("script.") && it.state != "unavailable" }
             .map { state ->
@@ -69,7 +70,7 @@ class ApolloDeckClient(
                     confirm = state.entityId in confirmRequired,
                 )
             }
-            .sortedBy { it.label.lowercase() }
+            .sortedByActionOrder(actionPrefsStore.getOrder(), entityId = { it.endpoint.orEmpty() }, label = { it.label })
         val scriptsService = if (scriptActions.isEmpty()) null else Service(
             name = SCRIPTS_SERVICE_NAME,
             status = "online",
@@ -134,7 +135,7 @@ object ApiClient {
             actionExecutor = ActionExecutor(httpClient, baseUrl),
             tokenStore = tokenStore,
             serverConfigStore = serverConfigStore,
-            confirmActionStore = ConfirmActionStore(context),
+            actionPrefsStore = ActionPrefsStore(context),
         )
     }
 }

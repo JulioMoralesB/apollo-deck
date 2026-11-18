@@ -8,7 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.apollox10.apollodeck.core.net.ApiClient
-import com.apollox10.apollodeck.core.store.ConfirmActionStore
+import com.apollox10.apollodeck.core.store.ActionPrefsStore
 import com.apollox10.apollodeck.core.store.IconOverrideStore
 import com.apollox10.apollodeck.wear.BuildConfig
 
@@ -48,11 +48,11 @@ class GridTileRefreshWorker(context: Context, params: WorkerParameters) : Corout
         }
 
         // Catch-up pulls, not the primary path for any of them — the
-        // TileGrid, IconOverride and ConfirmAction DataListenerServices push
+        // TileGrid, IconOverride and ActionPrefs DataListenerServices push
         // their updates immediately when the phone saves them. This only matters for a change published
         // before this ever ran (or a missed push).
         pullTileGridSelection(applicationContext)?.let { cacheTileGridSelection(applicationContext, it) }
-        pullConfirmActions(applicationContext)?.let { ConfirmActionStore(applicationContext).replaceAll(it) }
+        pullActionPrefs(applicationContext)?.let { ActionPrefsStore(applicationContext).replaceAll(it.order, it.confirmRequired) }
         val overridesChanged = pullIconOverrides(applicationContext)?.let {
             IconOverrideStore(applicationContext).replaceAll(it)
             true

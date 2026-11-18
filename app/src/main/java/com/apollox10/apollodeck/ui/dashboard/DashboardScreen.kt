@@ -59,11 +59,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
-import com.apollox10.apollodeck.core.store.ConfirmActionStore
+import com.apollox10.apollodeck.core.store.ActionPrefsStore
+import com.apollox10.apollodeck.core.store.sortedByActionOrder
 import com.apollox10.apollodeck.core.model.CaduTrackItem
 import com.apollox10.apollodeck.core.model.CaduTrackSummary
 import com.apollox10.apollodeck.core.model.FreeGamesSummary
@@ -71,7 +73,7 @@ import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.core.model.ServiceSummary
 import com.apollox10.apollodeck.core.model.formatEta
 import com.apollox10.apollodeck.ui.icons.IconOverrideScreen
-import com.apollox10.apollodeck.ui.settings.ConfirmActionsScreen
+import com.apollox10.apollodeck.ui.settings.ActionPrefsScreen
 import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.settings.SettingsScreen
 import com.apollox10.apollodeck.ui.theme.BorderColor
@@ -85,6 +87,7 @@ import com.apollox10.apollodeck.wearsync.TileGridConfigScreen
 // same grid reflows on rotation instead of keeping a portrait column count
 // in landscape.
 private val CARD_MIN_SIZE = 110.dp
+private const val DEVICE_SEPARATOR = " · "
 
 // Caps how tall the summary section can grow before scrolling internally —
 // without this, a service with many items (e.g. several active promotions,
@@ -113,7 +116,7 @@ fun DashboardScreen(
     var showSettings by remember { mutableStateOf(false) }
     var showTileGridConfig by remember { mutableStateOf(false) }
     var showIconOverrides by remember { mutableStateOf(false) }
-    var showConfirmActions by remember { mutableStateOf(false) }
+    var showActionPrefs by remember { mutableStateOf(false) }
 
     // Re-runs whenever a summary widget row's tap delivers a new service
     // name (see MainActivity's onNewIntent — the activity is singleTop, so
@@ -123,12 +126,12 @@ fun DashboardScreen(
         if (initialServiceName != null) selectedServiceName = initialServiceName
     }
 
-    BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig || showIconOverrides || showConfirmActions) {
+    BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig || showIconOverrides || showActionPrefs) {
         when {
             selectedServiceName != null -> selectedServiceName = null
             showTileGridConfig -> showTileGridConfig = false
             showIconOverrides -> showIconOverrides = false
-            showConfirmActions -> showConfirmActions = false
+            showActionPrefs -> showActionPrefs = false
             else -> showSettings = false
         }
     }
@@ -139,7 +142,7 @@ fun DashboardScreen(
     fun handleActionTap(action: Action) {
         when {
             action.href != null -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(action.href)))
-            action.endpoint?.let { ConfirmActionStore(context).isRequired(it) } == true -> pendingAction = action
+            action.endpoint?.let { ActionPrefsStore(context).isConfirmRequired(it) } == true -> pendingAction = action
             else -> viewModel.executeAction(action)
         }
     }
@@ -208,7 +211,7 @@ fun DashboardScreen(
                                     tint = MaterialTheme.colorScheme.onBackground,
                                 )
                             }
-                            showConfirmActions -> IconButton(onClick = { showConfirmActions = false }) {
+                            showActionPrefs -> IconButton(onClick = { showActionPrefs = false }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
@@ -236,7 +239,7 @@ fun DashboardScreen(
                             selectedService != null -> selectedService.name
                             showTileGridConfig -> "Watch Tile"
                             showIconOverrides -> "Icon Overrides"
-                            showConfirmActions -> "Confirm Actions"
+                            showActionPrefs -> "Actions"
                             showSettings -> "Settings"
                             else -> "Apollo Deck"
                         },
@@ -254,14 +257,14 @@ fun DashboardScreen(
                 TileGridConfigScreen(onSaved = { showTileGridConfig = false })
             } else if (showIconOverrides) {
                 IconOverrideScreen()
-            } else if (showConfirmActions) {
-                ConfirmActionsScreen()
+            } else if (showActionPrefs) {
+                ActionPrefsScreen()
             } else if (showSettings) {
                 SettingsScreen(
                     onSaved = onLogout,
                     onConfigureWatchTile = { showTileGridConfig = true },
                     onIconOverrides = { showIconOverrides = true },
-                    onConfirmActions = { showConfirmActions = true },
+                    onActionPrefs = { showActionPrefs = true },
                 )
             } else when (val state = uiState) {
                 is DashboardUiState.Loading -> Box(
@@ -360,7 +363,12 @@ private fun ActionGrid(
     onActionTap: (Action) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Re-sorted with the live saved order, not just the order the list was
+    // fetched in: reordering in Settings and coming back would otherwise
+    // show the old order until the next poll.
+    val context = LocalContext.current
     val actions = service.actions.orEmpty()
+        .sortedByActionOrder(ActionPrefsStore(context).getOrder(), entityId = { it.endpoint.orEmpty() }, label = { it.label })
     if (actions.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No actions configured.", style = MonospaceTextStyle, color = MaterialTheme.colorScheme.onBackground)
@@ -525,14 +533,32 @@ private fun ActionButton(action: Action, state: ActionCardState?, modifier: Modi
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(24.dp),
         )
+        // "Device · action" labels (the convention for HA script names) put
+        // the device on its own small line so the action gets both lines of
+        // the main label instead of being cut off after the device name.
+        val (device, label) = action.label.split(DEVICE_SEPARATOR, limit = 2)
+            .let { if (it.size == 2) it[0] to it[1] else null to action.label }
+        if (device != null) {
+            Text(
+                device,
+                style = MonospaceTextStyle,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
         Text(
-            action.label,
+            label,
             style = MonospaceTextStyle,
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             maxLines = 2,
-            modifier = Modifier.padding(top = 6.dp),
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = if (device != null) 2.dp else 6.dp),
         )
     }
 }

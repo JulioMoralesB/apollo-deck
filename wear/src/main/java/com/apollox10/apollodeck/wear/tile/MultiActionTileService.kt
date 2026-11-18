@@ -27,7 +27,7 @@ import androidx.wear.tiles.RequestBuilders.TileRequest
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import com.apollox10.apollodeck.core.model.Action
-import com.apollox10.apollodeck.core.store.ConfirmActionStore
+import com.apollox10.apollodeck.core.store.ActionPrefsStore
 import com.apollox10.apollodeck.core.store.IconOverrideStore
 import com.apollox10.apollodeck.core.sync.TileGridActionRef
 import com.apollox10.apollodeck.core.tile.TILE_ACCENT_COLORS
@@ -94,7 +94,7 @@ class MultiActionTileService : TileService() {
             val alreadyArmed = loadArmedGridAction(applicationContext) == clickedIndex
             // Read live rather than from the cached action, so a change made
             // on the phone applies before the next grid refresh re-caches.
-            val confirmRequired = clicked.action.endpoint?.let { ConfirmActionStore(applicationContext).isRequired(it) } ?: false
+            val confirmRequired = clicked.action.endpoint?.let { ActionPrefsStore(applicationContext).isConfirmRequired(it) } ?: false
             if (confirmRequired && !alreadyArmed) {
                 // First tap on a confirm-required action — arm it and
                 // stop here, don't run it yet.

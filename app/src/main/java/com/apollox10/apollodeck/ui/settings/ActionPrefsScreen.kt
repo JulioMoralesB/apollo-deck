@@ -10,8 +10,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -28,16 +32,16 @@ import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
 
-// One switch per Home Assistant script. A checked script asks before
-// running everywhere it can be triggered (see ConfirmActionStore), on the
-// phone and — synced — the watch.
+// Order and confirm-before-running for Home Assistant's scripts (see
+// ActionPrefsStore), applied on the phone and — synced — the watch.
 @Composable
-fun ConfirmActionsScreen(
-    viewModel: ConfirmActionsViewModel = viewModel(),
+fun ActionPrefsScreen(
+    viewModel: ActionPrefsViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val required by viewModel.required.collectAsState()
+    val confirmRequired by viewModel.confirmRequired.collectAsState()
     val context = LocalContext.current
+    val dimmed = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
 
     Column(
         modifier = Modifier
@@ -45,54 +49,65 @@ fun ConfirmActionsScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        Text("Confirm before running", style = MonospaceTextStyle, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
+        Text("Actions", style = MonospaceTextStyle, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
         Text(
-            "Checked scripts ask first — a dialog on the dashboard, long-press on the watch, a ⚠ on widgets",
+            "Arrows set the order. The switch makes a script ask first — a dialog on the dashboard, " +
+                "long-press on the watch, a ⚠ on widgets",
             style = MonospaceTextStyle,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            color = dimmed,
             modifier = Modifier.padding(bottom = 20.dp),
         )
 
         when (val state = uiState) {
-            is ConfirmActionsUiState.Loading -> Box(
+            is ActionPrefsUiState.Loading -> Box(
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.onBackground)
             }
 
-            is ConfirmActionsUiState.Error -> Text(state.message, style = MonospaceTextStyle, color = ErrorRed)
+            is ActionPrefsUiState.Error -> Text(state.message, style = MonospaceTextStyle, color = ErrorRed)
 
-            is ConfirmActionsUiState.Loaded -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            is ActionPrefsUiState.Loaded -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (state.actions.isEmpty()) {
                     Text("No scripts in Home Assistant", style = MonospaceTextStyle, fontSize = 12.sp)
                 }
-                state.actions.forEach { action ->
-                    val entityId = action.endpoint ?: return@forEach
+                Text(
+                    "Confirm",
+                    style = MonospaceTextStyle,
+                    fontSize = 10.sp,
+                    color = dimmed,
+                    modifier = Modifier.align(Alignment.End),
+                )
+                state.actions.forEachIndexed { index, action ->
+                    val entityId = action.endpoint ?: return@forEachIndexed
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
+                        IconButton(onClick = { viewModel.move(index, index - 1) }, enabled = index > 0) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
+                        }
+                        IconButton(onClick = { viewModel.move(index, index + 1) }, enabled = index < state.actions.lastIndex) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
+                        }
                         Icon(
                             resolvedIconFor(context, action.icon),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
                         )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(action.label, style = MonospaceTextStyle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onBackground)
-                            Text(
-                                entityId,
-                                style = MonospaceTextStyle,
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                            )
-                        }
+                        Text(
+                            action.label,
+                            style = MonospaceTextStyle,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f),
+                        )
                         Switch(
-                            checked = entityId in required,
-                            onCheckedChange = { viewModel.setRequired(entityId, it) },
+                            checked = entityId in confirmRequired,
+                            onCheckedChange = { viewModel.setConfirmRequired(entityId, it) },
                         )
                     }
                 }

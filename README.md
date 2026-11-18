@@ -39,7 +39,7 @@ Shared by `app` and `wear`:
 - `ui/dashboard/` — service grid (adaptive columns) → tapping a service opens its action grid in place (no modal), with that service's summary shown above the actions when it has one; pull-to-refresh; long-press a service for a one-tap shortcut when it has exactly one action
 - `ui/settings/` — edit the Home Assistant URL, configure the watch's multi-action tile, and set icon overrides
 - `ui/icons/` — maps icon names (Home Assistant's `mdi:*`, plus the original dashboard's Lucide names) to Material Icons Extended equivalents, plus a per-name override screen for anything the mapping misses
-- `ui/settings/ConfirmActionsScreen.kt` — pick which Home Assistant scripts ask before running (synced to the watch)
+- `ui/settings/ActionPrefsScreen.kt` — order Home Assistant's scripts and pick which ask before running (synced to the watch)
 - `wearsync/` — publishes the phone's session and watch-tile/icon-override selections to the paired watch over the Wear Data Layer
 - `widget/` — three home-screen widget types (see below)
 
@@ -47,7 +47,7 @@ Shared by `app` and `wear`:
 
 All three render via plain `RemoteViews`/`AppWidgetProvider`, not Jetpack Glance — Glance's session/recomposition layer proved unreliable for background-triggered updates (tap feedback, WorkManager-driven status revert) on real hardware.
 
-- **Action widget** — pin a single Home Assistant script, run it with one tap. Placing it launches a picker of HA's scripts; a widget configured against the old dashboard shows "Tap to configure". Reuses the phone app's stored token — no separate widget login, no interactive re-auth possible. Runs on tap with no confirmation dialog (a widget can't show one without launching an Activity); a script marked "Confirm before running" instead gets a persistent amber "⚠" as an ongoing visual reminder.
+- **Action widget** — pin a single Home Assistant script, run it with one tap. Placing it launches a picker of HA's scripts; a widget configured against the old dashboard shows "Tap to configure". Reuses the phone app's stored token — no separate widget login, no interactive re-auth possible. Runs on tap with no confirmation dialog (a widget can't show one without launching an Activity); a script set to confirm (Settings → "Order and confirmation") instead gets a persistent amber "⚠" as an ongoing visual reminder.
 - **Summary widget** — pin one service's summary (up to three condensed lines — e.g. Free Games Notifier's soonest-ending promo, or CaduTrack's expiring-soon count and next item due). Only services with a summary sensor show up in its picker.
 - **Combined summary widget** — no configuration; automatically shows one row per service that has a summary, refreshed in the background every 15 minutes. Tapping a row opens the app directly into that service's own panel.
 
