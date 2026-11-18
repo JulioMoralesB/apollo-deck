@@ -6,8 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.apollox10.apollodeck.core.auth.AuthRepository
-import com.apollox10.apollodeck.core.net.ApiClient
+import com.apollox10.apollodeck.core.auth.HomeAssistantAuth
 import com.apollox10.apollodeck.core.store.ServerConfigStore
 import com.apollox10.apollodeck.wear.BuildConfig
 import com.apollox10.apollodeck.wear.sync.PhoneSessionSync
@@ -24,8 +23,8 @@ sealed interface LoginUiState {
     data class Error(val message: String) : LoginUiState
 }
 
-// Typing server URL + username + password (and, if the backend needs it,
-// Cloudflare Access credentials) on a watch keyboard is painful, so
+// Typing a Home Assistant URL + long-lived token on a watch keyboard is
+// painful, so
 // "sign in from phone" is the primary path — it pulls the already-logged-in
 // session from a paired phone over the Wear Data Layer (see
 // PhoneSessionSync). The manual form below stays as a fallback for a watch
@@ -33,8 +32,7 @@ sealed interface LoginUiState {
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     var serverUrl by mutableStateOf(ServerConfigStore(application).getBaseUrl() ?: "")
-    var username by mutableStateOf("")
-    var password by mutableStateOf("")
+    var token by mutableStateOf("")
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState: StateFlow<LoginUiState> = _uiState
@@ -59,31 +57,26 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     fun login(onSuccess: () -> Unit) {
         val url = serverUrl.trim()
-        val user = username.trim()
+        val trimmedToken = token.trim()
 
-        if (url.isEmpty() || user.isEmpty() || password.isEmpty()) {
-            _uiState.value = LoginUiState.Error("Server, username, and password are required")
+        if (url.isEmpty() || trimmedToken.isEmpty()) {
+            _uiState.value = LoginUiState.Error("URL and access token are required")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading
             try {
-                val context = getApplication<Application>()
-                ServerConfigStore(context).setBaseUrl(url)
-
-                val client = ApiClient.create(context, debugLogging = BuildConfig.DEBUG)
-                AuthRepository(client).login(user, password)
+                HomeAssistantAuth.connect(getApplication(), url, trimmedToken, debugLogging = BuildConfig.DEBUG)
                 _uiState.value = LoginUiState.Idle
                 onSuccess()
             } catch (e: HttpException) {
                 _uiState.value = when (e.code()) {
-                    401 -> LoginUiState.Error("Invalid username or password")
-                    403 -> LoginUiState.Error("Blocked (403) — set up Cloudflare Access on the phone app first")
+                    401 -> LoginUiState.Error("Invalid token")
                     else -> LoginUiState.Error("Server error (${e.code()})")
                 }
             } catch (e: IOException) {
-                _uiState.value = LoginUiState.Error("Could not reach the server")
+                _uiState.value = LoginUiState.Error("Could not reach Home Assistant")
             } catch (e: Exception) {
                 _uiState.value = LoginUiState.Error("Something went wrong: ${e.message}")
             }

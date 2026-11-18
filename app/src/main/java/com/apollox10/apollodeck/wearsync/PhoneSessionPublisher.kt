@@ -3,9 +3,9 @@ package com.apollox10.apollodeck.wearsync
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import com.apollox10.apollodeck.core.store.CloudflareAccessStore
 import com.apollox10.apollodeck.core.store.ServerConfigStore
 import com.apollox10.apollodeck.core.store.TokenStore
+import com.apollox10.apollodeck.core.sync.SESSION_SCHEMA_VERSION
 import com.apollox10.apollodeck.core.sync.SessionTransfer
 import com.apollox10.apollodeck.core.sync.SessionTransferPaths
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -26,24 +26,19 @@ private const val TAG = "PhoneSessionPublisher"
 object PhoneSessionPublisher {
 
     fun publishCurrentSession(context: Context) {
-        val tokenStore = TokenStore(context)
-        val accessToken = tokenStore.getAccessToken()
-        val refreshToken = tokenStore.getRefreshToken()
+        val token = TokenStore(context).getToken()
         val serverUrl = ServerConfigStore(context).getBaseUrl()
 
-        if (accessToken == null || refreshToken == null || serverUrl == null) {
+        if (token == null || serverUrl == null) {
             Log.d(TAG, "not logged in, clearing any published session instead")
             clear(context)
             return
         }
 
-        val credentials = CloudflareAccessStore(context).getCredentials()
         val transfer = SessionTransfer(
+            schemaVersion = SESSION_SCHEMA_VERSION,
             serverUrl = serverUrl,
-            accessToken = accessToken,
-            refreshToken = refreshToken,
-            cloudflareAccessClientId = credentials?.clientId,
-            cloudflareAccessClientSecret = credentials?.clientSecret,
+            token = token,
         )
         val request = PutDataMapRequest.create(SessionTransferPaths.SESSION_DATA_PATH).apply {
             dataMap.putString(KEY_PAYLOAD, Json.encodeToString(transfer))

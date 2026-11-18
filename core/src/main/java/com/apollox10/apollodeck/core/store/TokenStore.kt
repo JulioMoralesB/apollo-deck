@@ -2,39 +2,38 @@ package com.apollox10.apollodeck.core.store
 
 import android.content.Context
 
-// Holds the access/refresh token pair. The access token is short-lived and
-// gets swapped out silently on every 401 (see TokenAuthenticator); the
-// refresh token is what lets a widget or tile stay logged in across days
-// without ever showing a login prompt, so long as it hasn't expired.
+// Holds the Home Assistant long-lived access token. It doesn't expire and
+// there's no refresh step, which is what lets widgets, tiles and background
+// workers keep working indefinitely without an interactive prompt.
 class TokenStore(context: Context) {
     private val prefs = encryptedPrefs(context)
 
-    fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
+    fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
 
-    fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
-
-    fun saveTokenPair(accessToken: String, refreshToken: String) {
+    fun saveToken(token: String) {
         prefs.edit()
-            .putString(KEY_ACCESS_TOKEN, accessToken)
-            .putString(KEY_REFRESH_TOKEN, refreshToken)
+            .putString(KEY_TOKEN, token)
+            .apply {
+                // Left behind by the pre-Home Assistant dashboard login
+                // (JWT pair + optional Cloudflare Access service token).
+                LEGACY_KEYS.forEach { remove(it) }
+            }
             .apply()
     }
 
-    fun saveAccessToken(accessToken: String) {
-        prefs.edit().putString(KEY_ACCESS_TOKEN, accessToken).apply()
-    }
-
-    fun isLoggedIn(): Boolean = getRefreshToken() != null
+    fun isLoggedIn(): Boolean = getToken() != null
 
     fun clear() {
-        prefs.edit()
-            .remove(KEY_ACCESS_TOKEN)
-            .remove(KEY_REFRESH_TOKEN)
-            .apply()
+        prefs.edit().remove(KEY_TOKEN).apply()
     }
 
     private companion object {
-        const val KEY_ACCESS_TOKEN = "access_token"
-        const val KEY_REFRESH_TOKEN = "refresh_token"
+        const val KEY_TOKEN = "ha_long_lived_token"
+        val LEGACY_KEYS = listOf(
+            "access_token",
+            "refresh_token",
+            "cf_access_client_id",
+            "cf_access_client_secret",
+        )
     }
 }

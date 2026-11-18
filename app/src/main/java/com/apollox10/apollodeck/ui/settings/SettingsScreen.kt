@@ -20,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,7 +58,7 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = viewModel.serverUrl,
                 onValueChange = { viewModel.serverUrl = it },
-                label = { Text("Server URL", style = MonospaceTextStyle) },
+                label = { Text("Home Assistant URL", style = MonospaceTextStyle) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 colors = apolloTextFieldColors(),
@@ -67,34 +66,7 @@ fun SettingsScreen(
             )
 
             Text(
-                "Cloudflare Access (optional)",
-                style = MonospaceTextStyle,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-
-            OutlinedTextField(
-                value = viewModel.cloudflareAccessClientId,
-                onValueChange = { viewModel.cloudflareAccessClientId = it },
-                label = { Text("Access Client ID", style = MonospaceTextStyle) },
-                singleLine = true,
-                colors = apolloTextFieldColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            OutlinedTextField(
-                value = viewModel.cloudflareAccessClientSecret,
-                onValueChange = { viewModel.cloudflareAccessClientSecret = it },
-                label = { Text("Access Client Secret", style = MonospaceTextStyle) },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                colors = apolloTextFieldColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text(
-                "Saving requires logging in again.",
+                "Saving asks for the access token again.",
                 style = MonospaceTextStyle,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface,

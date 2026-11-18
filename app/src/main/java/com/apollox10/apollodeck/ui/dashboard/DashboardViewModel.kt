@@ -50,8 +50,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     val actionStates: StateFlow<Map<String, ActionCardState>> = _actionStates
 
     // Keyed by service name, mirrors the web dashboard's summaries state —
-    // fetched alongside every /services poll for any service that has a
-    // summaryEndpoint, so it's already there by the time a panel opens.
+    // fetched alongside every services refresh for any service that has a
+    // summaryEntityId, so it's already there by the time a panel opens.
     private val _summaries = MutableStateFlow<Map<String, ServiceSummary>>(emptyMap())
     val summaries: StateFlow<Map<String, ServiceSummary>> = _summaries
 
@@ -86,11 +86,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun refresh(onSessionExpired: () -> Unit) {
         try {
-            val services = client.authenticatedApi.getServices()
+            val services = client.getServices()
             _uiState.value = DashboardUiState.Loaded(services)
             services.forEach { service ->
-                service.summaryEndpoint?.let { endpoint ->
-                    viewModelScope.launch { fetchSummary(service.name, endpoint) }
+                service.summaryEntityId?.let { entityId ->
+                    viewModelScope.launch { fetchSummary(service.name, entityId) }
                 }
             }
         } catch (e: HttpException) {
@@ -104,8 +104,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private suspend fun fetchSummary(serviceName: String, endpoint: String) {
-        val result = client.actionExecutor.fetchSummary(endpoint)
+    private suspend fun fetchSummary(serviceName: String, entityId: String) {
+        val result = client.fetchSummary(entityId)
         val summary = result.fold(
             onSuccess = { raw -> parseServiceSummary(raw) },
             onFailure = { e -> ServiceSummary.Error(e.message ?: "Failed to load summary") },

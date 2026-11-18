@@ -52,7 +52,7 @@ class TileGridConfigViewModel(application: Application) : AndroidViewModel(appli
 
             try {
                 val client = ApiClient.create(app, debugLogging = BuildConfig.DEBUG)
-                val services = client.authenticatedApi.getServices()
+                val services = client.getServices()
                 val grouped = services.mapNotNull { service ->
                     val runnable = service.actions.orEmpty()
                         .filter { it.endpoint != null && it.method != "href" }

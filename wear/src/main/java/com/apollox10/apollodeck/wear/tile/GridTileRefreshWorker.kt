@@ -35,7 +35,7 @@ class GridTileRefreshWorker(context: Context, params: WorkerParameters) : Corout
     override suspend fun doWork(): Result {
         try {
             val client = ApiClient.create(applicationContext, debugLogging = BuildConfig.DEBUG)
-            val flat = client.authenticatedApi.getServices()
+            val flat = client.getServices()
                 .flatMap { service ->
                     (service.actions.orEmpty())
                         .filter { it.method != null && it.method != "href" && it.endpoint != null }

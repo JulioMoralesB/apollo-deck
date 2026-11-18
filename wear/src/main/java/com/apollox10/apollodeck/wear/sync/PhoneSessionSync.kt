@@ -2,10 +2,9 @@ package com.apollox10.apollodeck.wear.sync
 
 import android.content.Context
 import android.util.Log
-import com.apollox10.apollodeck.core.store.CloudflareAccessCredentials
-import com.apollox10.apollodeck.core.store.CloudflareAccessStore
 import com.apollox10.apollodeck.core.store.ServerConfigStore
 import com.apollox10.apollodeck.core.store.TokenStore
+import com.apollox10.apollodeck.core.sync.SESSION_SCHEMA_VERSION
 import com.apollox10.apollodeck.core.sync.SessionTransfer
 import com.apollox10.apollodeck.core.sync.SessionTransferPaths
 import com.google.android.gms.wearable.DataMapItem
@@ -24,7 +23,7 @@ sealed interface PhoneSyncResult {
 
 // Reads the session a paired phone has published as a synced Wear Data
 // Layer DataItem (see the phone's PhoneSessionPublisher) instead of the
-// user typing server URL + username + password on a watch keyboard. This
+// user typing a Home Assistant URL + token on a watch keyboard. This
 // is a local read against whatever the OS has already synced — it doesn't
 // need the phone to be reachable at this exact moment. An earlier version
 // asked the phone live over MessageClient; that measured unreliable on
@@ -50,7 +49,11 @@ class PhoneSessionSync(private val context: Context) {
 
                 val dataMap = DataMapItem.fromDataItem(item).dataMap
                 val payload = dataMap.getString(KEY_PAYLOAD) ?: return PhoneSyncResult.NotLoggedInOnPhone
-                val transfer = Json.decodeFromString<SessionTransfer>(payload)
+                // A payload from an older phone app (the pre-Home Assistant
+                // JWT session) doesn't decode — same as nothing published.
+                val transfer = runCatching { Json.decodeFromString<SessionTransfer>(payload) }.getOrNull()
+                    ?.takeIf { it.schemaVersion == SESSION_SCHEMA_VERSION }
+                    ?: return PhoneSyncResult.NotLoggedInOnPhone
                 applySession(transfer)
                 PhoneSyncResult.Success
             } finally {
@@ -64,12 +67,7 @@ class PhoneSessionSync(private val context: Context) {
 
     private fun applySession(transfer: SessionTransfer) {
         ServerConfigStore(context).setBaseUrl(transfer.serverUrl)
-        TokenStore(context).saveTokenPair(transfer.accessToken, transfer.refreshToken)
-        val cfId = transfer.cloudflareAccessClientId
-        val cfSecret = transfer.cloudflareAccessClientSecret
-        if (cfId != null && cfSecret != null) {
-            CloudflareAccessStore(context).setCredentials(CloudflareAccessCredentials(cfId, cfSecret))
-        }
+        TokenStore(context).saveToken(transfer.token)
     }
 
     private companion object {

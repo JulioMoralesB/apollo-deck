@@ -32,7 +32,7 @@ class TileConfigViewModel(application: Application) : AndroidViewModel(applicati
             _uiState.value = TileConfigUiState.Loading
             try {
                 val client = ApiClient.create(getApplication(), debugLogging = BuildConfig.DEBUG)
-                val items = client.authenticatedApi.getServices().flatMap { service ->
+                val items = client.getServices().flatMap { service ->
                     (service.actions.orEmpty())
                         .filter { it.method != null && it.method != "href" && it.endpoint != null }
                         .map { TileConfigItem(service.name, it) }
