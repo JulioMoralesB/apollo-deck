@@ -15,7 +15,7 @@ private const val KEY_PREFIX = "override_"
 // the same override.
 //
 // Plain SharedPreferences, not the encrypted store TokenStore/
-// ServerConfigStore/CloudflareAccessStore use — these are just icon name
+// ServerConfigStore use — these are just icon name
 // strings, nothing sensitive, matching the tile stores' convention.
 class IconOverrideStore(private val context: Context) {
     private val prefs get() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

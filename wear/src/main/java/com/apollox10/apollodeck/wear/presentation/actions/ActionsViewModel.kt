@@ -3,7 +3,7 @@ package com.apollox10.apollodeck.wear.presentation.actions
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.apollox10.apollodeck.core.auth.AuthRepository
+import com.apollox10.apollodeck.core.auth.HomeAssistantAuth
 import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.net.ApiClient
 import com.apollox10.apollodeck.core.net.ApolloDeckClient
@@ -24,7 +24,6 @@ data class ActionItem(val serviceName: String, val action: Action)
 class ActionsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val client: ApolloDeckClient = ApiClient.create(application, debugLogging = BuildConfig.DEBUG)
-    private val authRepository = AuthRepository(client)
 
     private val _uiState = MutableStateFlow<ActionsUiState>(ActionsUiState.Loading)
     val uiState: StateFlow<ActionsUiState> = _uiState
@@ -40,7 +39,7 @@ class ActionsViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _uiState.value = ActionsUiState.Loading
             try {
-                val services = client.authenticatedApi.getServices()
+                val services = client.getServices()
                 // "href" actions open an external link — nothing to "execute"
                 // for one on a watch, so they're left off this list (same
                 // convention the widget follows).
@@ -73,6 +72,6 @@ class ActionsViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun logout() {
-        authRepository.logout()
+        HomeAssistantAuth.disconnect(getApplication())
     }
 }

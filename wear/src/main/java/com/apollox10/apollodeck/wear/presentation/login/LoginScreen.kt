@@ -75,26 +75,18 @@ fun LoginScreen(
 
         item(key = "server") {
             WearTextField(
-                label = "Server",
+                label = "Home Assistant URL",
                 value = viewModel.serverUrl,
                 onValueChange = { viewModel.serverUrl = it },
                 keyboardType = KeyboardType.Uri,
                 enabled = !isLoading,
             )
         }
-        item(key = "username") {
+        item(key = "token") {
             WearTextField(
-                label = "Username",
-                value = viewModel.username,
-                onValueChange = { viewModel.username = it },
-                enabled = !isLoading,
-            )
-        }
-        item(key = "password") {
-            WearTextField(
-                label = "Password",
-                value = viewModel.password,
-                onValueChange = { viewModel.password = it },
+                label = "Access token",
+                value = viewModel.token,
+                onValueChange = { viewModel.token = it },
                 isPassword = true,
                 imeAction = ImeAction.Done,
                 enabled = !isLoading,

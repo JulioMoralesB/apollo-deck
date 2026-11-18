@@ -18,23 +18,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import android.view.autofill.AutofillManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.autofill.AutofillNode
-import androidx.compose.ui.autofill.AutofillType
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalAutofill
-import androidx.compose.ui.platform.LocalAutofillTree
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -45,7 +33,6 @@ import com.apollox10.apollodeck.ui.theme.ErrorRed
 import com.apollox10.apollodeck.ui.theme.MonospaceTextStyle
 import com.apollox10.apollodeck.ui.theme.apolloTextFieldColors
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -53,8 +40,6 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isLoading = uiState is LoginUiState.Loading
-    val context = LocalContext.current
-    val autofillManager = remember { context.getSystemService(AutofillManager::class.java) }
 
     Box(
         modifier = Modifier
@@ -86,8 +71,8 @@ fun LoginScreen(
                 OutlinedTextField(
                     value = viewModel.serverUrl,
                     onValueChange = { viewModel.serverUrl = it },
-                    label = { Text("Server URL", style = MonospaceTextStyle) },
-                    placeholder = { Text("https://dashboard.example.com", style = MonospaceTextStyle) },
+                    label = { Text("Home Assistant URL", style = MonospaceTextStyle) },
+                    placeholder = { Text("https://homeassistant.example.com", style = MonospaceTextStyle) },
                     singleLine = true,
                     enabled = !isLoading,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -96,75 +81,27 @@ fun LoginScreen(
                 )
 
                 OutlinedTextField(
-                    value = viewModel.username,
-                    onValueChange = { viewModel.username = it },
-                    label = { Text("Username", style = MonospaceTextStyle) },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    colors = apolloTextFieldColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .autofill(listOf(AutofillType.Username)) { viewModel.username = it },
-                )
-
-                OutlinedTextField(
-                    value = viewModel.password,
-                    onValueChange = { viewModel.password = it },
-                    label = { Text("Password", style = MonospaceTextStyle) },
+                    value = viewModel.token,
+                    onValueChange = { viewModel.token = it },
+                    label = { Text("Long-lived access token", style = MonospaceTextStyle) },
+                    supportingText = {
+                        Text(
+                            "Home Assistant → Profile → Security",
+                            style = MonospaceTextStyle,
+                            fontSize = 11.sp,
+                        )
+                    },
                     singleLine = true,
                     enabled = !isLoading,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     colors = apolloTextFieldColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .autofill(listOf(AutofillType.Password)) { viewModel.password = it },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-
-                TextButton(
-                    onClick = { viewModel.showCloudflareAccessFields = !viewModel.showCloudflareAccessFields },
-                ) {
-                    Text(
-                        text = if (viewModel.showCloudflareAccessFields) {
-                            "Hide Cloudflare Access"
-                        } else {
-                            "Behind Cloudflare Access?"
-                        },
-                        style = MonospaceTextStyle,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-
-                if (viewModel.showCloudflareAccessFields) {
-                    OutlinedTextField(
-                        value = viewModel.cloudflareAccessClientId,
-                        onValueChange = { viewModel.cloudflareAccessClientId = it },
-                        label = { Text("Access Client ID", style = MonospaceTextStyle) },
-                        singleLine = true,
-                        enabled = !isLoading,
-                        colors = apolloTextFieldColors(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    OutlinedTextField(
-                        value = viewModel.cloudflareAccessClientSecret,
-                        onValueChange = { viewModel.cloudflareAccessClientSecret = it },
-                        label = { Text("Access Client Secret", style = MonospaceTextStyle) },
-                        singleLine = true,
-                        enabled = !isLoading,
-                        visualTransformation = PasswordVisualTransformation(),
-                        colors = apolloTextFieldColors(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
 
                 Button(
                     onClick = {
-                        viewModel.login {
-                            autofillManager?.commit()
-                            onLoginSuccess()
-                        }
+                        viewModel.login(onLoginSuccess)
                     },
                     enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
@@ -180,7 +117,7 @@ fun LoginScreen(
                             strokeWidth = 2.dp,
                         )
                     } else {
-                        Text("Enter", style = MonospaceTextStyle)
+                        Text("Connect", style = MonospaceTextStyle)
                     }
                 }
 
@@ -195,26 +132,4 @@ fun LoginScreen(
             }
         }
     }
-}
-
-// The stable, non-experimental Compose autofill API — AutofillNode +
-// LocalAutofill — rather than the semantics-based ContentType API, which is
-// still internal at this project's Compose BOM version.
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-private fun Modifier.autofill(
-    autofillTypes: List<AutofillType>,
-    onFill: (String) -> Unit,
-): Modifier {
-    val autofillNode = remember { AutofillNode(autofillTypes = autofillTypes, onFill = onFill) }
-    val autofill = LocalAutofill.current
-    LocalAutofillTree.current += autofillNode
-
-    return this
-        .onGloballyPositioned { autofillNode.boundingBox = it.boundsInWindow() }
-        .onFocusChanged { state ->
-            autofill?.run {
-                if (state.isFocused) requestAutofillForNode(autofillNode) else cancelAutofillForNode(autofillNode)
-            }
-        }
 }

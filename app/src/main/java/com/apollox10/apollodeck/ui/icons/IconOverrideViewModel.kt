@@ -46,7 +46,7 @@ class IconOverrideViewModel(application: Application) : AndroidViewModel(applica
 
             try {
                 val client = ApiClient.create(app, debugLogging = BuildConfig.DEBUG)
-                val services = client.authenticatedApi.getServices()
+                val services = client.getServices()
                 val names = (services.mapNotNull { it.icon } + services.flatMap { it.actions.orEmpty().mapNotNull { a -> a.icon } })
                     .distinct()
                     .sorted()

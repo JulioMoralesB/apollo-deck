@@ -103,8 +103,8 @@ private fun SummaryWidgetPickerScreen(initialServiceName: String?, onPick: (Stri
         launch {
             uiState = try {
                 val client = ApiClient.create(context, debugLogging = BuildConfig.DEBUG)
-                val names = client.authenticatedApi.getServices()
-                    .filter { it.summaryEndpoint != null }
+                val names = client.getServices()
+                    .filter { it.summaryEntityId != null }
                     .map { it.name }
                 if (names.isEmpty()) {
                     PickerUiState.Error("No services with a summary configured")

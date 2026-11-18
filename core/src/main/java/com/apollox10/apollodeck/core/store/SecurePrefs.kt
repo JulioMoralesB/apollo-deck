@@ -5,8 +5,8 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-// Single encrypted file backing all local storage — tokens, server URL, and
-// optional Cloudflare Access credentials. Keys are namespaced per store
+// Single encrypted file backing all local storage — the Home Assistant
+// token and URL. Keys are namespaced per store
 // rather than splitting into multiple files, since Android Keystore key
 // setup has real per-file overhead.
 internal fun encryptedPrefs(context: Context): SharedPreferences {

@@ -31,7 +31,7 @@ class WidgetConfigureViewModel(application: Application) : AndroidViewModel(appl
 
             try {
                 val client = ApiClient.create(application, debugLogging = BuildConfig.DEBUG)
-                val services = client.authenticatedApi.getServices()
+                val services = client.getServices()
                 // href actions open a link, they don't call the backend —
                 // they don't fit an "execute an action" widget.
                 val grouped = services.mapNotNull { service ->

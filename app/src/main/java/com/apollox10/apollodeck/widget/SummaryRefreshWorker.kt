@@ -29,12 +29,12 @@ class SummaryRefreshWorker(context: Context, params: WorkerParameters) : Corouti
     override suspend fun doWork(): Result {
         try {
             val client = ApiClient.create(applicationContext, debugLogging = BuildConfig.DEBUG)
-            val services = client.authenticatedApi.getServices()
-            val summaryServices = services.filter { it.summaryEndpoint != null }
+            val services = client.getServices()
+            val summaryServices = services.filter { it.summaryEntityId != null }
 
             summaryServices.forEach { service ->
-                val endpoint = service.summaryEndpoint ?: return@forEach
-                client.actionExecutor.fetchSummary(endpoint).onSuccess { raw ->
+                val entityId = service.summaryEntityId ?: return@forEach
+                client.fetchSummary(entityId).onSuccess { raw ->
                     saveSummaryCache(applicationContext, service.name, raw)
                 }
                 // On failure, keep whatever's already cached rather than

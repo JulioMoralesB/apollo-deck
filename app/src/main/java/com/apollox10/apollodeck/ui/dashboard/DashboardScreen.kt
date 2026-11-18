@@ -293,7 +293,7 @@ fun DashboardScreen(
                                         // to open the panel — that's the only place its
                                         // summary renders — so it takes the same priority
                                         // as having actions, ahead of just opening a url.
-                                        if (!service.actions.isNullOrEmpty() || service.summaryEndpoint != null) {
+                                        if (!service.actions.isNullOrEmpty() || service.summaryEntityId != null) {
                                             selectedServiceName = service.name
                                         } else if (service.url != null) {
                                             context.startActivity(
@@ -372,7 +372,7 @@ private fun ActionGrid(
 private fun ServiceCard(service: Service, onClick: () -> Unit, onLongClick: () -> Unit) {
     val context = LocalContext.current
     val hasActions = !service.actions.isNullOrEmpty()
-    val opensPanel = hasActions || service.summaryEndpoint != null
+    val opensPanel = hasActions || service.summaryEntityId != null
     val isClickable = opensPanel || service.url != null
     val statusColor = statusColorFor(service.status)
 
@@ -430,7 +430,7 @@ private fun ServiceCard(service: Service, onClick: () -> Unit, onLongClick: () -
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            service.summaryEndpoint != null -> Text(
+            service.summaryEntityId != null -> Text(
                 "Summary",
                 style = MonospaceTextStyle,
                 fontSize = 8.sp,

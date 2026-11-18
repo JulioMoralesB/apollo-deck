@@ -2,37 +2,7 @@ package com.apollox10.apollodeck.core.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-
-@Serializable
-data class LoginRequest(
-    val username: String,
-    val password: String,
-)
-
-@Serializable
-data class RefreshRequest(
-    @SerialName("refresh_token") val refreshToken: String,
-)
-
-@Serializable
-data class AccessTokenResponse(
-    @SerialName("access_token") val accessToken: String,
-    @SerialName("token_type") val tokenType: String = "bearer",
-    @SerialName("expires_in") val expiresIn: Int,
-)
-
-@Serializable
-data class TokenPairResponse(
-    @SerialName("access_token") val accessToken: String,
-    @SerialName("token_type") val tokenType: String = "bearer",
-    @SerialName("expires_in") val expiresIn: Int,
-    @SerialName("refresh_token") val refreshToken: String,
-)
-
-@Serializable
-data class VersionResponse(
-    val version: String,
-)
+import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class Action(
@@ -52,7 +22,9 @@ data class Service(
     val icon: String? = null,
     val url: String? = null,
     val actions: List<Action>? = null,
-    @SerialName("summary_endpoint") val summaryEndpoint: String? = null,
+    // Home Assistant entity that holds this service's last /api/summary
+    // response (see ApolloDeckClient.getServices), not a URL.
+    val summaryEntityId: String? = null,
 )
 
 @Serializable
@@ -61,4 +33,18 @@ data class ActionResult(
     val message: String? = null,
     @SerialName("status_code") val statusCode: Int? = null,
     val body: String? = null,
+)
+
+// GET /api/ — Home Assistant answers {"message": "API running."} to any
+// valid token, so it doubles as the login check.
+@Serializable
+data class HaApiStatus(
+    val message: String,
+)
+
+@Serializable
+data class HaState(
+    @SerialName("entity_id") val entityId: String,
+    val state: String,
+    val attributes: JsonObject = JsonObject(emptyMap()),
 )
