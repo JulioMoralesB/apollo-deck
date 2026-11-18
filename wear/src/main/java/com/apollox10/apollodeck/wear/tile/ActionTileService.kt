@@ -80,7 +80,6 @@ class ActionTileService : TileService() {
                 Intent(applicationContext, TileActionReceiver::class.java).apply {
                     action = TileActionReceiver.ACTION_EXECUTE
                     putExtra(TileActionReceiver.EXTRA_ENDPOINT, config.endpoint)
-                    putExtra(TileActionReceiver.EXTRA_METHOD, config.method)
                     putExtra(TileActionReceiver.EXTRA_TRACK_STATUS_TILE_ID, tileId)
                 },
             )

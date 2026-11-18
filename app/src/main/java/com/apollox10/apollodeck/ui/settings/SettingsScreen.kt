@@ -33,6 +33,7 @@ fun SettingsScreen(
     onSaved: () -> Unit,
     onConfigureWatchTile: () -> Unit,
     onIconOverrides: () -> Unit,
+    onConfirmActions: () -> Unit,
     viewModel: SettingsViewModel = viewModel(),
 ) {
     Box(
@@ -103,6 +104,24 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Configure watch tile", style = MonospaceTextStyle)
+            }
+
+            Text(
+                "Actions",
+                style = MonospaceTextStyle,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Button(
+                onClick = onConfirmActions,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Confirm before running", style = MonospaceTextStyle)
             }
 
             Text(

@@ -1,6 +1,7 @@
 package com.apollox10.apollodeck.widget
 
 import android.content.Context
+import com.apollox10.apollodeck.core.model.isScriptEndpoint
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -22,7 +23,7 @@ data class WidgetActionConfig(
     // can render a visual warning as an ongoing reminder for actions that
     // require confirmation everywhere else.
     val confirm: Boolean,
-    // Defaults to the action's own dashboard icon at configure time, but can
+    // Defaults to the action's own icon at configure time, but can
     // be overridden in the icon picker step — an id resolvable via
     // ui.icons.widgetIconFor.
     val iconName: String,
@@ -50,11 +51,14 @@ fun saveWidgetActionConfig(context: Context, appWidgetId: Int, config: WidgetAct
         .apply()
 }
 
+// A config saved against the old apollo-server-dashboard endpoints reads as
+// unconfigured, so the widget shows "Tap to configure" instead of failing
+// on every tap.
 fun loadWidgetActionConfig(context: Context, appWidgetId: Int): WidgetActionConfig? {
     val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .getString(configKey(appWidgetId), null) ?: return null
     return try {
-        Json.decodeFromString(raw)
+        Json.decodeFromString<WidgetActionConfig>(raw).takeIf { isScriptEndpoint(it.endpoint) }
     } catch (e: Exception) {
         null
     }

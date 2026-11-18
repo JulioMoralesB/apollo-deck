@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollox10.apollodeck.core.model.Action
+import com.apollox10.apollodeck.core.store.ConfirmActionStore
 import com.apollox10.apollodeck.core.model.CaduTrackItem
 import com.apollox10.apollodeck.core.model.CaduTrackSummary
 import com.apollox10.apollodeck.core.model.FreeGamesSummary
@@ -70,6 +71,7 @@ import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.core.model.ServiceSummary
 import com.apollox10.apollodeck.core.model.formatEta
 import com.apollox10.apollodeck.ui.icons.IconOverrideScreen
+import com.apollox10.apollodeck.ui.settings.ConfirmActionsScreen
 import com.apollox10.apollodeck.ui.icons.resolvedIconFor
 import com.apollox10.apollodeck.ui.settings.SettingsScreen
 import com.apollox10.apollodeck.ui.theme.BorderColor
@@ -111,6 +113,7 @@ fun DashboardScreen(
     var showSettings by remember { mutableStateOf(false) }
     var showTileGridConfig by remember { mutableStateOf(false) }
     var showIconOverrides by remember { mutableStateOf(false) }
+    var showConfirmActions by remember { mutableStateOf(false) }
 
     // Re-runs whenever a summary widget row's tap delivers a new service
     // name (see MainActivity's onNewIntent — the activity is singleTop, so
@@ -120,19 +123,23 @@ fun DashboardScreen(
         if (initialServiceName != null) selectedServiceName = initialServiceName
     }
 
-    BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig || showIconOverrides) {
+    BackHandler(enabled = selectedServiceName != null || showSettings || showTileGridConfig || showIconOverrides || showConfirmActions) {
         when {
             selectedServiceName != null -> selectedServiceName = null
             showTileGridConfig -> showTileGridConfig = false
             showIconOverrides -> showIconOverrides = false
+            showConfirmActions -> showConfirmActions = false
             else -> showSettings = false
         }
     }
 
+    // Confirm is read live rather than from action.confirm: the services
+    // list (and the confirm flags folded into it) is from the last poll, so
+    // a script just checked in Settings would otherwise still run unasked.
     fun handleActionTap(action: Action) {
         when {
             action.href != null -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(action.href)))
-            action.confirm -> pendingAction = action
+            action.endpoint?.let { ConfirmActionStore(context).isRequired(it) } == true -> pendingAction = action
             else -> viewModel.executeAction(action)
         }
     }
@@ -201,6 +208,13 @@ fun DashboardScreen(
                                     tint = MaterialTheme.colorScheme.onBackground,
                                 )
                             }
+                            showConfirmActions -> IconButton(onClick = { showConfirmActions = false }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
                             showSettings -> IconButton(onClick = { showSettings = false }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
@@ -222,6 +236,7 @@ fun DashboardScreen(
                             selectedService != null -> selectedService.name
                             showTileGridConfig -> "Watch Tile"
                             showIconOverrides -> "Icon Overrides"
+                            showConfirmActions -> "Confirm Actions"
                             showSettings -> "Settings"
                             else -> "Apollo Deck"
                         },
@@ -239,11 +254,14 @@ fun DashboardScreen(
                 TileGridConfigScreen(onSaved = { showTileGridConfig = false })
             } else if (showIconOverrides) {
                 IconOverrideScreen()
+            } else if (showConfirmActions) {
+                ConfirmActionsScreen()
             } else if (showSettings) {
                 SettingsScreen(
                     onSaved = onLogout,
                     onConfigureWatchTile = { showTileGridConfig = true },
                     onIconOverrides = { showIconOverrides = true },
+                    onConfirmActions = { showConfirmActions = true },
                 )
             } else when (val state = uiState) {
                 is DashboardUiState.Loading -> Box(

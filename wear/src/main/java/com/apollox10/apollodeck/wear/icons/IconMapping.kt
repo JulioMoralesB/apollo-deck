@@ -11,6 +11,10 @@ import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.PowerOff
+import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.Brightness5
+import androidx.compose.material.icons.filled.Brightness7
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Cloud
@@ -95,7 +99,9 @@ fun iconFor(name: String?): ImageVector = when (name) {
     "github" -> Icons.Default.Code
     "music4" -> Icons.Default.MusicNote
     "box" -> Icons.Default.Inventory2
-    else -> Icons.Default.Info
+    // Anything else that's an id in the picker catalog — notably the MDI
+    // names Home Assistant scripts carry (see core's haIconToAppIcon).
+    else -> overridableIcons.firstOrNull { it.first == name }?.second ?: Icons.Default.Info
 }
 
 // Same id namespace as the phone app's ui/icons/IconMapping.kt
@@ -159,6 +165,12 @@ private val overridableIcons: List<Pair<String, ImageVector>> = listOf(
     "search" to Icons.Default.Search,
     "link" to Icons.Default.Link,
     "wrench" to Icons.Default.Build,
+    // Material Design Icons names Home Assistant scripts use that have no
+    // closer id above (see core's haIconToAppIcon).
+    "brightness-7" to Icons.Default.Brightness7,
+    "brightness-5" to Icons.Default.Brightness5,
+    "lightbulb-night" to Icons.Default.Nightlight,
+    "power-off" to Icons.Default.PowerOff,
 )
 
 private fun overridableIconFor(id: String): ImageVector =

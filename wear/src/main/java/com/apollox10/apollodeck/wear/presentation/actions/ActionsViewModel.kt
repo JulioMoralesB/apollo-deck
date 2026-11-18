@@ -57,11 +57,10 @@ class ActionsViewModel(application: Application) : AndroidViewModel(application)
 
     fun execute(item: ActionItem) {
         val endpoint = item.action.endpoint ?: return
-        val method = item.action.method ?: return
         viewModelScope.launch {
             _executionResult.value = "${item.action.label}…"
             try {
-                val result = client.actionExecutor.execute(endpoint, method)
+                val result = client.actionExecutor.execute(endpoint)
                 _executionResult.value = result.message ?: if (result.success) "Done" else "Failed"
             } catch (e: Exception) {
                 _executionResult.value = "Error: ${e.message}"

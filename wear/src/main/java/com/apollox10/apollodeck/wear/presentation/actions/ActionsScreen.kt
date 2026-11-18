@@ -1,5 +1,7 @@
 package com.apollox10.apollodeck.wear.presentation.actions
 
+import androidx.compose.ui.platform.LocalContext
+import com.apollox10.apollodeck.core.store.ConfirmActionStore
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -87,7 +89,9 @@ fun ActionsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ActionRow(item: ActionItem, onExecute: () -> Unit) {
-    val needsConfirm = item.action.confirm
+    // Live, not item.action.confirm — the list was loaded before any change
+    // synced from the phone since (see ConfirmActionDataListenerService).
+    val needsConfirm = item.action.endpoint?.let { ConfirmActionStore(LocalContext.current).isRequired(it) } == true
     Box(
         modifier = Modifier
             .fillMaxWidth()

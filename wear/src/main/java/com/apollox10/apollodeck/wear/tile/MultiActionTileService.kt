@@ -27,6 +27,7 @@ import androidx.wear.tiles.RequestBuilders.TileRequest
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import com.apollox10.apollodeck.core.model.Action
+import com.apollox10.apollodeck.core.store.ConfirmActionStore
 import com.apollox10.apollodeck.core.store.IconOverrideStore
 import com.apollox10.apollodeck.core.sync.TileGridActionRef
 import com.apollox10.apollodeck.core.tile.TILE_ACCENT_COLORS
@@ -91,20 +92,21 @@ class MultiActionTileService : TileService() {
         val clicked = clickedIndex?.let { actions.getOrNull(it) }
         if (clicked != null) {
             val alreadyArmed = loadArmedGridAction(applicationContext) == clickedIndex
-            if (clicked.action.confirm && !alreadyArmed) {
+            // Read live rather than from the cached action, so a change made
+            // on the phone applies before the next grid refresh re-caches.
+            val confirmRequired = clicked.action.endpoint?.let { ConfirmActionStore(applicationContext).isRequired(it) } ?: false
+            if (confirmRequired && !alreadyArmed) {
                 // First tap on a confirm-required action — arm it and
                 // stop here, don't run it yet.
                 armGridAction(applicationContext, clickedIndex!!)
             } else {
                 clearArmedGridAction(applicationContext)
                 val endpoint = clicked.action.endpoint
-                val method = clicked.action.method
-                if (endpoint != null && method != null) {
+                if (endpoint != null) {
                     sendBroadcast(
                         Intent(applicationContext, TileActionReceiver::class.java).apply {
                             action = TileActionReceiver.ACTION_EXECUTE
                             putExtra(TileActionReceiver.EXTRA_ENDPOINT, endpoint)
-                            putExtra(TileActionReceiver.EXTRA_METHOD, method)
                             putExtra(TileActionReceiver.EXTRA_TRACK_STATUS_TILE_ID, TileActionReceiver.NO_TILE_ID)
                             putExtra(TileActionReceiver.EXTRA_TRACK_GRID_INDEX, clickedIndex)
                         },

@@ -1,6 +1,7 @@
 package com.apollox10.apollodeck.wear.tile
 
 import android.content.Context
+import com.apollox10.apollodeck.core.model.isScriptEndpoint
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -53,11 +54,13 @@ fun saveTileActionConfig(context: Context, tileId: Int, config: TileActionConfig
         .apply()
 }
 
+// A config saved against the old apollo-server-dashboard endpoints reads as
+// unconfigured, so the tile shows "Tap to configure".
 fun loadTileActionConfig(context: Context, tileId: Int): TileActionConfig? {
     val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .getString(configKey(tileId), null) ?: return null
     return try {
-        Json.decodeFromString(raw)
+        Json.decodeFromString<TileActionConfig>(raw).takeIf { isScriptEndpoint(it.endpoint) }
     } catch (e: Exception) {
         null
     }
