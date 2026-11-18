@@ -1,5 +1,7 @@
 package com.apollox10.apollodeck.wear.presentation.actions
 
+import androidx.compose.ui.platform.LocalContext
+import com.apollox10.apollodeck.core.store.ActionPrefsStore
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -87,7 +89,9 @@ fun ActionsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ActionRow(item: ActionItem, onExecute: () -> Unit) {
-    val needsConfirm = item.action.confirm
+    // Live, not item.action.confirm — the list was loaded before any change
+    // synced from the phone since (see ActionPrefsDataListenerService).
+    val needsConfirm = item.action.endpoint?.let { ActionPrefsStore(LocalContext.current).isConfirmRequired(it) } == true
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -98,10 +102,15 @@ private fun ActionRow(item: ActionItem, onExecute: () -> Unit) {
             )
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
+        // "Device · action" labels (the convention for HA script names):
+        // the action as the title, the device in place of the service name.
+        val parts = item.action.label.split(" · ", limit = 2)
+        val title = parts.last()
+        val subtitle = if (parts.size == 2) parts.first() else item.serviceName
         Column {
-            Text(text = item.action.label, style = MaterialTheme.typography.button)
+            Text(text = title, style = MaterialTheme.typography.button)
             Text(
-                text = if (needsConfirm) "Long-press to confirm" else item.serviceName,
+                text = if (needsConfirm) "$subtitle · long-press" else subtitle,
                 style = MaterialTheme.typography.caption3,
                 color = MaterialTheme.colors.onSurfaceVariant,
             )

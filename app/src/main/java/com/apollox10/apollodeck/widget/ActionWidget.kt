@@ -75,7 +75,7 @@ private suspend fun runAction(context: Context, config: WidgetActionConfig): Pai
     return try {
         val result = withTimeoutOrNull(NETWORK_TIMEOUT_MS) {
             val client = ApiClient.create(context, debugLogging = BuildConfig.DEBUG)
-            client.actionExecutor.execute(config.endpoint, config.method)
+            client.actionExecutor.execute(config.endpoint)
         } ?: return WidgetStatus.Error to "${config.label}: timed out"
 
         val text = when {

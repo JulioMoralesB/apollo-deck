@@ -115,11 +115,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun executeAction(action: Action) {
         val endpoint = action.endpoint ?: return
-        val method = action.method ?: "POST"
         viewModelScope.launch {
             _actionStates.value = _actionStates.value + (endpoint to ActionCardState.Loading)
             val cardState = try {
-                val result = client.actionExecutor.execute(endpoint, method)
+                val result = client.actionExecutor.execute(endpoint)
                 _actionResult.value = when {
                     !result.message.isNullOrBlank() -> "${action.label}: ${result.message}"
                     result.success -> "${action.label}: done"

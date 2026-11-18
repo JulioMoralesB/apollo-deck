@@ -1,63 +1,41 @@
 package com.apollox10.apollodeck.core.net
 
 import com.apollox10.apollodeck.core.model.ActionResult
+import com.apollox10.apollodeck.core.model.isScriptEndpoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-// Methods OkHttp's Request.Builder.method(String, RequestBody?) refuses to
-// pair with a null body — passing null for one of these throws
-// IllegalArgumentException("method $method must have a request body.")
-// before the request is even sent, so a body-less POST/PUT/PATCH action
-// gets an empty body instead. Confirmed on real hardware: fetch() in the
-// web dashboard doesn't enforce this, only this OkHttp-based client did.
-private val METHODS_REQUIRING_BODY = setOf("POST", "PUT", "PATCH")
-
-// Executes an Action: an arbitrary method + endpoint (+ optional JSON body)
-// relative to the Home Assistant base URL, e.g. POST
-// api/services/script/turn_on. Not a Retrofit call, since the method and
-// path come from the Action at runtime.
+// Runs an Action — a Home Assistant script, identified by its entity id
+// (see isScriptEndpoint). Goes through script.turn_on rather than calling
+// the script's own service (POST api/services/script/<name>): that one
+// blocks until the script finishes, so a slow script (a light fading in, a
+// multi-step Spotify call) would hit the HTTP timeout and read as a
+// failure. turn_on returns as soon as it has started, so success here
+// means "started".
 class ActionExecutor(
     private val authenticatedClient: OkHttpClient,
     private val baseUrl: String,
-    private val json: Json,
 ) {
-    suspend fun execute(
-        endpoint: String,
-        method: String,
-        bodyJson: String? = null,
-    ): ActionResult = withContext(Dispatchers.IO) {
-        val url = baseUrl.toHttpUrl().resolve(endpoint)
-            ?: error("Invalid action endpoint: $endpoint")
-
-        val upperMethod = method.uppercase()
-        val requestBody = when {
-            bodyJson != null -> bodyJson.toRequestBody("application/json".toMediaType())
-            upperMethod in METHODS_REQUIRING_BODY -> "".toRequestBody(null)
-            else -> null
+    suspend fun execute(endpoint: String): ActionResult = withContext(Dispatchers.IO) {
+        if (!isScriptEndpoint(endpoint)) {
+            return@withContext ActionResult(success = false, message = "Reconfigure this action")
         }
 
+        val body = buildJsonObject { put("entity_id", JsonPrimitive(endpoint)) }
         val request = Request.Builder()
-            .url(url)
-            .method(upperMethod, requestBody)
+            .url(baseUrl.toHttpUrl().resolve("api/services/script/turn_on")!!)
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
 
         authenticatedClient.newCall(request).execute().use { response ->
-            val raw = response.body?.string()
-            if (raw.isNullOrBlank()) {
-                ActionResult(success = response.isSuccessful, statusCode = response.code)
-            } else {
-                try {
-                    json.decodeFromString(ActionResult.serializer(), raw)
-                } catch (e: Exception) {
-                    ActionResult(success = response.isSuccessful, statusCode = response.code, body = raw)
-                }
-            }
+            ActionResult(success = response.isSuccessful, statusCode = response.code)
         }
     }
 }

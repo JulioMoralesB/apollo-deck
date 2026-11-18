@@ -12,7 +12,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.apollox10.apollodeck.MainActivity
+import com.apollox10.apollodeck.core.store.ActionPrefsStore
 import com.apollox10.apollodeck.R
 import com.apollox10.apollodeck.ui.icons.widgetIconFor
 
@@ -52,15 +52,15 @@ private fun buildWidgetRemoteViews(context: Context, appWidgetId: Int): RemoteVi
         views.setTextViewText(R.id.widget_label, "Tap to configure")
         views.setTextColor(R.id.widget_label, DefaultText.toArgb())
         views.setViewVisibility(R.id.widget_label, View.VISIBLE)
-        // Not configured shouldn't normally happen (configure runs before
-        // the widget ever renders), but open the app rather than leaving a
-        // dead tap target if it ever does.
-        views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent(context, appWidgetId))
+        // Normally only a config saved against the old dashboard endpoints
+        // (see loadWidgetActionConfig), so a tap goes straight back into
+        // the configure flow for this widget.
+        views.setOnClickPendingIntent(R.id.widget_root, configurePendingIntent(context, appWidgetId))
         return views
     }
 
     val status = loadWidgetStatus(context, appWidgetId)
-    val isWarning = config.confirm
+    val isWarning = ActionPrefsStore(context).isConfirmRequired(config.endpoint)
     val accent = accentFor(config.accentId)
 
     // Precedence: a transient result always wins (it's what the user just
@@ -109,8 +109,9 @@ private fun buildWidgetRemoteViews(context: Context, appWidgetId: Int): RemoteVi
     return views
 }
 
-private fun openAppPendingIntent(context: Context, appWidgetId: Int): PendingIntent {
-    val intent = Intent(context, MainActivity::class.java)
+private fun configurePendingIntent(context: Context, appWidgetId: Int): PendingIntent {
+    val intent = Intent(context, ActionWidgetConfigureActivity::class.java)
+        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
     return PendingIntent.getActivity(
         context,
         appWidgetId,

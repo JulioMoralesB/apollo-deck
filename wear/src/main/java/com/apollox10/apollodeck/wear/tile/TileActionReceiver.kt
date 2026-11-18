@@ -25,7 +25,6 @@ class TileActionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val endpoint = intent.getStringExtra(EXTRA_ENDPOINT) ?: return
-        val method = intent.getStringExtra(EXTRA_METHOD) ?: return
         val trackStatusTileId = intent.getIntExtra(EXTRA_TRACK_STATUS_TILE_ID, NO_TILE_ID)
         val trackGridIndex = intent.getIntExtra(EXTRA_TRACK_GRID_INDEX, NO_GRID_INDEX)
         // Not context itself — a BroadcastReceiver's context actively
@@ -42,7 +41,7 @@ class TileActionReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.Default).launch {
             try {
                 val client = ApiClient.create(appContext, debugLogging = BuildConfig.DEBUG)
-                val result = client.actionExecutor.execute(endpoint, method)
+                val result = client.actionExecutor.execute(endpoint)
                 val status = if (result.success) TileActionStatus.Success else TileActionStatus.Error
                 if (trackStatusTileId != NO_TILE_ID) reportStatus(appContext, trackStatusTileId, status)
                 if (trackGridIndex != NO_GRID_INDEX) reportGridStatus(appContext, trackGridIndex, status)
@@ -69,7 +68,6 @@ class TileActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_EXECUTE = "com.apollox10.apollodeck.wear.tile.ACTION_EXECUTE"
         const val EXTRA_ENDPOINT = "endpoint"
-        const val EXTRA_METHOD = "method"
         // The tileId to report success/error status back to (ActionTileService),
         // or NO_TILE_ID if this execution isn't from that tile.
         const val EXTRA_TRACK_STATUS_TILE_ID = "track_status_tile_id"
