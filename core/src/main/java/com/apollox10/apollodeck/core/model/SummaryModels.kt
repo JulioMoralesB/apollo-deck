@@ -40,6 +40,23 @@ data class CaduTrackSummary(
     val next: List<CaduTrackItem> = emptyList(),
 )
 
+// Home Assistant's own energy totals (sensor.energia_summary — a template
+// sensor shaped like the services' summaries so it's discovered the same
+// way): live total power, today's kWh (null until the daily meter has a
+// value) and a per-device breakdown.
+@Serializable
+data class EnergyDevice(
+    val name: String,
+    @SerialName("power_w") val powerW: Double,
+)
+
+@Serializable
+data class EnergySummary(
+    @SerialName("power_w") val powerW: Double,
+    @SerialName("today_kwh") val todayKwh: Double? = null,
+    val devices: List<EnergyDevice> = emptyList(),
+)
+
 // Mirrors the web dashboard's SummaryPanel.jsx: each service defines its own
 // summary contract (the backend's summary_dispatcher proxies the raw
 // upstream JSON through as-is), so this dispatches on response shape rather
@@ -48,6 +65,7 @@ data class CaduTrackSummary(
 sealed interface ServiceSummary {
     data class FreeGames(val data: FreeGamesSummary) : ServiceSummary
     data class CaduTrack(val data: CaduTrackSummary) : ServiceSummary
+    data class Energy(val data: EnergySummary) : ServiceSummary
     data class Error(val message: String) : ServiceSummary
     data object Unknown : ServiceSummary
 }
@@ -60,6 +78,7 @@ fun parseServiceSummary(raw: String, json: Json = defaultJson): ServiceSummary {
         when {
             "active_promotions" in obj -> ServiceSummary.FreeGames(json.decodeFromString(raw))
             "expired" in obj && "expiring_soon" in obj -> ServiceSummary.CaduTrack(json.decodeFromString(raw))
+            "power_w" in obj -> ServiceSummary.Energy(json.decodeFromString(raw))
             else -> ServiceSummary.Unknown
         }
     } catch (e: Exception) {

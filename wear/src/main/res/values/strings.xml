@@ -3,5 +3,7 @@
     <string name="tile_action_label">Action</string>
     <string name="tile_action_description">Run a single pinned dashboard action</string>
     <string name="tile_multi_action_label">Actions</string>
+    <string name="tile_energy_label">Energy</string>
+    <string name="tile_energy_description">Household power now and today\'s kWh, from Home Assistant</string>
     <string name="tile_multi_action_description">Quick access to your dashboard\'s top actions</string>
 </resources>

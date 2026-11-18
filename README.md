@@ -56,6 +56,7 @@ All three render via plain `RemoteViews`/`AppWidgetProvider`, not Jetpack Glance
 Standalone (`standalone=true`, doesn't require the phone nearby), but the login screen leads with "Sign In from Phone" when a paired phone has a synced session — typing a Home Assistant URL and access token on a watch keyboard is painful, so this is the easy path; manual entry is the fallback.
 
 - **Action tile** — the watch equivalent of the phone's action widget: one pinned action, a big circular tap-to-run button.
+- **Energy tile** — total household power now and today's kWh, from Home Assistant. Tap to refresh.
 - **Multi-action grid tile** — a grid of icon-only buttons. Which actions appear, and in what order, is configured from the phone app (Settings → "Configure watch tile"), not on the watch itself. A `confirm: true` action needs two taps (arm, then run within a few seconds), since a tile can't distinguish a long-press from a tap.
 
 Both tiles render entirely from a local cache — the system aggressively times out a tile that does network I/O while rendering, so a background `WorkManager` job keeps that cache warm instead.

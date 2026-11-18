@@ -23,6 +23,8 @@ private val MDI_TO_APP_ICON = mapOf(
     "food-apple" to "hand-platter",
     "food-apple-outline" to "hand-platter",
     "home-assistant" to "home",
+    "lightning-bolt" to "zap",
+    "flash" to "zap",
 )
 
 fun haIconToAppIcon(haIcon: String?): String? {
