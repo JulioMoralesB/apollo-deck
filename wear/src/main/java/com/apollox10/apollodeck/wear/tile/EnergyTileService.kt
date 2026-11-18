@@ -27,6 +27,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.apollox10.apollodeck.core.model.EnergySummary
 import com.apollox10.apollodeck.core.model.ServiceSummary
+import com.apollox10.apollodeck.core.model.formatCost
 import com.apollox10.apollodeck.core.model.formatKwh
 import com.apollox10.apollodeck.core.model.formatWatts
 import com.apollox10.apollodeck.core.model.parseServiceSummary
@@ -83,9 +84,14 @@ class EnergyTileService : TileService() {
                 column.addContent(text("Loading…", Typography.TYPOGRAPHY_CAPTION2, TileColors.onSurface))
             else -> {
                 column.addContent(text(formatWatts(energy.powerW), Typography.TYPOGRAPHY_DISPLAY3, TileColors.primary))
-                energy.todayKwh?.let {
+                energy.todayKwh?.let { kwh ->
+                    val cost = energy.costOf(kwh)?.let { " · ${formatCost(it)}" }.orEmpty()
                     column.addContent(Spacer.Builder().setHeight(dp(2f)).build())
-                    column.addContent(text("${formatKwh(it)} today", Typography.TYPOGRAPHY_CAPTION1, TileColors.onSurface))
+                    column.addContent(text("${formatKwh(kwh)}$cost", Typography.TYPOGRAPHY_CAPTION1, TileColors.onSurface))
+                }
+                energy.last60DaysKwh?.let { kwh -> energy.costOf(kwh) }?.let { cost ->
+                    column.addContent(Spacer.Builder().setHeight(dp(4f)).build())
+                    column.addContent(text("60 d · ${formatCost(cost)}", Typography.TYPOGRAPHY_CAPTION2, TileColors.warning))
                 }
             }
         }

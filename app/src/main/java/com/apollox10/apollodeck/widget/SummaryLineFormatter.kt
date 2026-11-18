@@ -5,6 +5,7 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import com.apollox10.apollodeck.core.model.CaduTrackSummary
 import com.apollox10.apollodeck.core.model.EnergySummary
+import com.apollox10.apollodeck.core.model.formatCost
 import com.apollox10.apollodeck.core.model.formatKwh
 import com.apollox10.apollodeck.core.model.formatWatts
 import com.apollox10.apollodeck.core.model.ServiceSummary
@@ -22,8 +23,11 @@ private fun caduTrackItemsExpired(data: CaduTrackSummary): Boolean =
     data.expiredProducts.isNotEmpty()
 
 // Totals first (what a glance is for), then the per-device breakdown.
-private fun energyTotals(data: EnergySummary): List<String> =
-    listOfNotNull("${formatWatts(data.powerW)} now", data.todayKwh?.let { "${formatKwh(it)} today" })
+private fun energyTotals(data: EnergySummary): List<String> = listOfNotNull(
+    "${formatWatts(data.powerW)} now",
+    data.todayKwh?.let { kwh -> "${formatKwh(kwh)} today" + (data.costOf(kwh)?.let { " (${formatCost(it)})" } ?: "") },
+    data.last60DaysKwh?.let { kwh -> "60 d: ${formatKwh(kwh)}" + (data.costOf(kwh)?.let { " (${formatCost(it)})" } ?: "") },
+)
 
 // A single word like "Expired" would misrepresent whichever items came from
 // the other bucket once both are shown together — so when both are

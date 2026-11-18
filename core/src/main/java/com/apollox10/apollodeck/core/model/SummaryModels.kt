@@ -43,7 +43,16 @@ data class CaduTrackSummary(
 // Home Assistant's own energy totals (sensor.energia_summary — a template
 // sensor shaped like the services' summaries so it's discovered the same
 // way): live total power, today's kWh (null until the daily meter has a
-// value) and a per-device breakdown.
+// value), a rolling 60-day daily series (completed days from
+// sensor.energia_historial_diario plus today so far — it starts empty and
+// fills up a day at a time), a flat price for an estimated cost, and a
+// per-device breakdown.
+@Serializable
+data class EnergyDay(
+    val date: String,
+    val kwh: Double,
+)
+
 @Serializable
 data class EnergyDevice(
     val name: String,
@@ -54,8 +63,15 @@ data class EnergyDevice(
 data class EnergySummary(
     @SerialName("power_w") val powerW: Double,
     @SerialName("today_kwh") val todayKwh: Double? = null,
+    @SerialName("last_60_days_kwh") val last60DaysKwh: Double? = null,
+    val daily: List<EnergyDay> = emptyList(),
+    @SerialName("price_per_kwh") val pricePerKwh: Double? = null,
+    val currency: String? = null,
     val devices: List<EnergyDevice> = emptyList(),
-)
+) {
+    // Null when no price is configured, so callers just skip showing a cost.
+    fun costOf(kwh: Double): Double? = pricePerKwh?.takeIf { it > 0 }?.let { kwh * it }
+}
 
 // Mirrors the web dashboard's SummaryPanel.jsx: each service defines its own
 // summary contract (the backend's summary_dispatcher proxies the raw

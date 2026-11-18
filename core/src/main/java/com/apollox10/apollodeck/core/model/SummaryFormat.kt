@@ -38,3 +38,8 @@ fun formatEta(iso: String?): String? {
 fun formatWatts(watts: Double): String = "${watts.roundToInt()} W"
 
 fun formatKwh(kwh: Double): String = String.format(Locale.US, "%.2f kWh", kwh)
+
+// An estimate (flat price, not CFE's tiered tariff), hence the "~". Whole
+// units once it's big enough that cents are noise.
+fun formatCost(amount: Double): String =
+    if (amount >= 100) "~$${amount.roundToInt()}" else String.format(Locale.US, "~$%.2f", amount)
