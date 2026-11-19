@@ -8,6 +8,7 @@ import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.core.model.ServiceSummary
 import com.apollox10.apollodeck.core.model.parseServiceSummary
+import com.apollox10.apollodeck.core.model.summaryFetchedAt
 import com.apollox10.apollodeck.core.net.ApiClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import java.time.Instant
 import java.io.IOException
 
 private const val REFRESH_INTERVAL_MS = 30_000L
@@ -54,6 +56,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // summaryEntityId, so it's already there by the time a panel opens.
     private val _summaries = MutableStateFlow<Map<String, ServiceSummary>>(emptyMap())
     val summaries: StateFlow<Map<String, ServiceSummary>> = _summaries
+
+    // When Home Assistant last fetched each summary from its service, keyed
+    // like summaries — what the panel's "Updated X h ago" is read from.
+    private val _summaryFetchedAt = MutableStateFlow<Map<String, Instant>>(emptyMap())
+    val summaryFetchedAt: StateFlow<Map<String, Instant>> = _summaryFetchedAt
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
@@ -111,6 +118,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             onFailure = { e -> ServiceSummary.Error(e.message ?: "Failed to load summary") },
         )
         _summaries.value = _summaries.value + (serviceName to summary)
+        result.getOrNull()?.let(::summaryFetchedAt)?.let {
+            _summaryFetchedAt.value = _summaryFetchedAt.value + (serviceName to it)
+        }
     }
 
     fun executeAction(action: Action) {

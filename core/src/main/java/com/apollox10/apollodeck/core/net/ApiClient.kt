@@ -3,6 +3,7 @@ package com.apollox10.apollodeck.core.net
 import android.content.Context
 import com.apollox10.apollodeck.core.model.Action
 import com.apollox10.apollodeck.core.model.HaState
+import com.apollox10.apollodeck.core.model.SUMMARY_FETCHED_AT_KEY
 import com.apollox10.apollodeck.core.model.Service
 import com.apollox10.apollodeck.core.model.haIconToAppIcon
 import com.apollox10.apollodeck.core.store.ActionPrefsStore
@@ -84,9 +85,16 @@ class ApolloDeckClient(
     // existing shape-dispatching parser (parseServiceSummary) reads it as-is.
     suspend fun fetchSummary(entityId: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val summary = api.getState(entityId).attributes[SUMMARY_ATTRIBUTE]
+            val attributes = api.getState(entityId).attributes
+            val summary = attributes[SUMMARY_ATTRIBUTE]
             if (summary is JsonObject) {
-                Result.success(summary.toString())
+                // Carried inside the cached JSON (the service's own fields
+                // are untouched) so every reader of the cache can tell how
+                // old it is — see summaryFetchedAt.
+                val withFetchedAt = attributes["fetched_at"]
+                    ?.let { JsonObject(summary + (SUMMARY_FETCHED_AT_KEY to it)) }
+                    ?: summary
+                Result.success(withFetchedAt.toString())
             } else {
                 Result.failure(IllegalStateException("No summary yet for $entityId"))
             }

@@ -71,10 +71,12 @@ import com.apollox10.apollodeck.core.model.CaduTrackSummary
 import com.apollox10.apollodeck.core.model.formatWatts
 import com.apollox10.apollodeck.core.model.formatKwh
 import com.apollox10.apollodeck.core.model.EnergySummary
+import java.time.Instant
 import java.util.Locale
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import com.apollox10.apollodeck.core.model.formatCost
+import com.apollox10.apollodeck.core.model.formatDataAge
 import com.apollox10.apollodeck.core.model.EnergyDay
 import com.apollox10.apollodeck.core.model.FreeGamesSummary
 import com.apollox10.apollodeck.core.model.Service
@@ -117,6 +119,7 @@ fun DashboardScreen(
     val actionResult by viewModel.actionResult.collectAsState()
     val actionStates by viewModel.actionStates.collectAsState()
     val summaries by viewModel.summaries.collectAsState()
+    val summaryFetchedAt by viewModel.summaryFetchedAt.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedServiceName by remember { mutableStateOf<String?>(null) }
@@ -292,7 +295,11 @@ fun DashboardScreen(
                 is DashboardUiState.Loaded -> if (selectedService != null) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         summaries[selectedService.name]?.let {
-                            SummarySection(it, hasActions = !selectedService.actions.isNullOrEmpty())
+                            SummarySection(
+                                it,
+                                hasActions = !selectedService.actions.isNullOrEmpty(),
+                                fetchedAt = summaryFetchedAt[selectedService.name],
+                            )
                         }
                         ActionGrid(
                             service = selectedService,
@@ -576,7 +583,7 @@ private fun ActionButton(action: Action, state: ActionCardState?, modifier: Modi
 // service name, same reasoning as the web version. An unrecognized shape
 // renders nothing rather than an empty card.
 @Composable
-private fun SummarySection(summary: ServiceSummary, hasActions: Boolean) {
+private fun SummarySection(summary: ServiceSummary, hasActions: Boolean, fetchedAt: Instant?) {
     if (summary is ServiceSummary.Unknown) return
 
     // The height cap only exists to protect ActionGrid below it — a service
@@ -604,6 +611,17 @@ private fun SummarySection(summary: ServiceSummary, hasActions: Boolean) {
             is ServiceSummary.Energy -> EnergySummaryContent(summary.data)
             is ServiceSummary.Error -> Text(summary.message, style = MonospaceTextStyle, fontSize = 11.sp, color = ErrorRed)
             ServiceSummary.Unknown -> Unit
+        }
+        // Home Assistant only refreshes the apollo services' summaries while
+        // apollo is up, so this can be most of a day old — say so.
+        formatDataAge(fetchedAt)?.let {
+            Text(
+                it,
+                style = MonospaceTextStyle,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.padding(top = 10.dp),
+            )
         }
     }
 }
