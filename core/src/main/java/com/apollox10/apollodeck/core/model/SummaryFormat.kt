@@ -43,3 +43,14 @@ fun formatKwh(kwh: Double): String = String.format(Locale.US, "%.2f kWh", kwh)
 // units once it's big enough that cents are noise.
 fun formatCost(amount: Double): String =
     if (amount >= 100) "~$${amount.roundToInt()}" else String.format(Locale.US, "~$%.2f", amount)
+
+// "Updated 14 h ago" — only once the data is old enough to matter (an
+// hour); fresher than that, saying so is just noise.
+fun formatDataAge(fetchedAt: Instant?, now: Instant = Instant.now()): String? {
+    val minutes = fetchedAt?.let { ChronoUnit.MINUTES.between(it, now) } ?: return null
+    return when {
+        minutes < 60 -> null
+        minutes < 24 * 60 -> "Updated ${minutes / 60} h ago"
+        else -> "Updated ${minutes / (24 * 60)} d ago"
+    }
+}

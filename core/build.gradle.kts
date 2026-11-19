@@ -27,10 +27,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     // api, not implementation: callers need to catch retrofit2.HttpException
-    // from calls made through ApolloDeckApi.
+    // from calls made through HomeAssistantApi.
     api(libs.retrofit.core)
     implementation(libs.retrofit.kotlinx.serialization.converter)
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.androidx.security.crypto)
+
+    testImplementation(libs.junit)
 }
